@@ -154,13 +154,30 @@
         post({ type: "rendered", kind: "markdown" });
       }
 
+      // Strip any `import ... from "react"` lines the agent may have included.
+      // We already inject React + common hooks below, so duplicates cause
+      // "Identifier 'React' has already been declared" at module-eval time.
+      function sanitizeReactCode(src) {
+        // Remove: import React, { ... } from 'react' / "react"
+        //         import { useState, useEffect } from 'react'
+        //         import React from "react"
+        //         import * as React from 'react'
+        return src.replace(
+          /^[ \t]*import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]react['"][\s;]*$/gm,
+          "",
+        );
+      }
+
       async function renderReact(code) {
         unmount();
         // Transform TSX → JS, then import it as a module via a blob URL.
         let transformed;
         try {
-          const pre = "import React from 'react';\nimport { useState, useEffect, useRef, useMemo, useCallback, useReducer } from 'react';\n";
-          transformed = transform(pre + code, {
+          const pre =
+            "import React from 'react';\n" +
+            "import { useState, useEffect, useRef, useMemo, useCallback, useReducer, useLayoutEffect, useContext, createContext, Fragment } from 'react';\n";
+          const cleaned = sanitizeReactCode(code);
+          transformed = transform(pre + cleaned, {
             transforms: ["typescript", "jsx"],
             jsxRuntime: "classic",
             production: true,

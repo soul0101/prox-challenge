@@ -4,94 +4,94 @@
   "page_count": 48,
   "sections": [
     {
-      "title": "Safety Warnings and Symbols",
+      "title": "Cover, Contents & Safety Warnings",
       "pages": [
         1,
         6
       ]
     },
     {
-      "title": "Specifications and Controls",
+      "title": "Specifications & Controls",
       "pages": [
         7,
         9
       ]
     },
     {
-      "title": "MIG/Flux-Cored Wire Welding Setup",
+      "title": "MIG/Flux-Cored Wire Setup",
       "pages": [
         10,
         17
       ]
     },
     {
-      "title": "MIG/Flux-Cored Wire Welding Operation",
+      "title": "MIG/Flux-Cored Wire Operation",
       "pages": [
         18,
         23
       ]
     },
     {
-      "title": "TIG/Stick Welding Setup",
+      "title": "TIG Setup & Operation",
       "pages": [
         24,
-        27
+        31
       ]
     },
     {
-      "title": "TIG/Stick Welding Operation",
+      "title": "Stick Setup & Operation",
       "pages": [
-        28,
+        27,
         33
       ]
     },
     {
-      "title": "Welding Quality Assessment and Tips",
+      "title": "Weld Quality & Troubleshooting Tips",
       "pages": [
         34,
-        34
-      ]
-    },
-    {
-      "title": "Wire Weld Troubleshooting",
-      "pages": [
-        35,
-        37
-      ]
-    },
-    {
-      "title": "Stick Weld Troubleshooting",
-      "pages": [
-        38,
         40
       ]
     },
     {
-      "title": "Maintenance and Cleaning",
+      "title": "Maintenance Procedures",
       "pages": [
         41,
         41
       ]
     },
     {
-      "title": "General Troubleshooting Tables",
+      "title": "Troubleshooting Tables",
       "pages": [
         42,
         44
       ]
     },
     {
-      "title": "Wiring Diagram, Parts List, and Warranty",
+      "title": "Wiring Schematic",
       "pages": [
         45,
+        45
+      ]
+    },
+    {
+      "title": "Parts List & Diagrams",
+      "pages": [
+        46,
+        47
+      ]
+    },
+    {
+      "title": "Warranty",
+      "pages": [
+        48,
         48
       ]
     }
   ],
   "suggested_prompts": [
-    "What wire tension should I set for MIG welding and how do I test it?",
-    "What's the difference between DCEN and DCEP polarity and when do I use each?",
-    "How do I diagnose and fix porosity in my wire welds?",
-    "What are the duty cycle limits at 120V versus 240V for MIG welding?"
+    "What polarity do I use for MIG welding solid core wire versus flux-cored wire?",
+    "How do I adjust the feed roller and tension for 0.030 inch wire?",
+    "What does porosity in my stick weld look like and how do I fix it?",
+    "What duty cycle can I run at 240V when TIG welding at 150 amps?"
   ]
 }

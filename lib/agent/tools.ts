@@ -177,7 +177,7 @@ export function buildMcpServer(bus: AgentEventBus) {
 
       tool(
         "crop_region",
-        "Locate a region on a page that matches a natural-language description and return JUST that cropped image. Use when the page is dense and you want to show (or see) only a specific diagram/table/photo. The crop is cached and has a stable URL you can pass to show_source.",
+        "Locate a region on a page that matches a natural-language description and return JUST that cropped image. Use when the page is dense and you want to show (or see) only a specific diagram / table / photo. Backed by a vision call to find the bbox, then a deterministic sharp crop. Result is cached by bbox.",
         {
           doc: z.string(),
           page: z.number().int().min(1),
@@ -214,7 +214,7 @@ export function buildMcpServer(bus: AgentEventBus) {
 
       tool(
         "show_source",
-        "Surface a source page (or crop of it) to the END USER in the chat UI. Use whenever your answer references specific visual content in the manual — polarity diagrams, weld photos, schematics, labelled front panels. The UI renders the image inline with a citation chip. Returns immediately.",
+        "Surface a source page (optionally cropped to a sub-region) to the END USER in the chat UI. Use whenever your answer references specific visual content — polarity diagrams, weld photos, schematics, labelled front panels. The UI renders it inline with a citation chip. If you pass `region`, it triggers a vision crop and the UI both shows the crop AND highlights the located bbox on the source page when opened.",
         {
           doc: z.string(),
           page: z.number().int().min(1),
@@ -223,7 +223,7 @@ export function buildMcpServer(bus: AgentEventBus) {
             .string()
             .optional()
             .describe(
-              "Natural-language description of a sub-region to crop, e.g. 'polarity socket diagram'. If provided, the UI shows only that region.",
+              "Optional natural-language description of a sub-region to crop, e.g. 'the polarity socket diagram'. Crops via vision-locate + sharp.",
             ),
         },
         async ({ doc, page, caption, region }): Promise<CallToolResult> => {
@@ -231,11 +231,12 @@ export function buildMcpServer(bus: AgentEventBus) {
           const entry = manifest.documents.find((d) => d.slug === doc);
           if (!entry) return textContent(`error: unknown document "${doc}"`);
           const pages = pagesByDoc.get(doc) || [];
-          if (!pages.find((p) => p.page === page))
-            return textContent(`error: page ${page} not in "${doc}"`);
+          const rec = pages.find((p) => p.page === page);
+          if (!rec) return textContent(`error: page ${page} not in "${doc}"`);
 
           let cropUrl: string | undefined;
           let bbox: [number, number, number, number] | undefined;
+
           if (region) {
             const located = await locateRegion({
               pngPath: paths.pageImage(doc, page),
@@ -244,7 +245,12 @@ export function buildMcpServer(bus: AgentEventBus) {
             if (located) {
               const crop = await cropPage({ slug: doc, page, bbox: located.bbox });
               cropUrl = crop.url;
-              bbox = located.bbox;
+              bbox = [
+                Math.round(located.bbox[0] * (rec.width || 0)),
+                Math.round(located.bbox[1] * (rec.height || 0)),
+                Math.round((located.bbox[2] - located.bbox[0]) * (rec.width || 0)),
+                Math.round((located.bbox[3] - located.bbox[1]) * (rec.height || 0)),
+              ];
             }
           }
 
@@ -259,7 +265,7 @@ export function buildMcpServer(bus: AgentEventBus) {
             cropUrl,
           });
           return textContent(
-            `Surfaced p.${page} of "${entry.title}" to the user${cropUrl ? " (cropped region)" : ""}.`,
+            `Surfaced p.${page} of "${entry.title}" to the user${cropUrl ? " (with crop)" : ""}.`,
           );
         },
       ),
@@ -275,17 +281,51 @@ Kinds:
 - "react": a React component written in TSX. \`export default function Component(){...}\`. Globals available: React, hooks, recharts (import from "recharts"), lucide-react icons. Tailwind classes work.
 - "markdown": long-form markdown — use sparingly; prefer react/html for interactivity.
 
-Pick the SIMPLEST kind that communicates the idea. Always include concrete numbers/citations pulled from the manual, never invented.`,
+Pick the SIMPLEST kind that communicates the idea. Always include concrete numbers/citations pulled from the manual, never invented.
+
+VERSIONING: when you are revising or improving a previously emitted artifact (user asked you to tweak it, fix a bug, add a feature), pass the SAME \`group_id\` as the original — the UI will stack the new code as a version (v2, v3…) under the existing card so the user can switch between them. Use a fresh group_id when emitting a brand-new artifact unrelated to any prior one. Use a stable, slug-like group_id (e.g. "duty-cycle-calc", "porosity-tree").
+
+CODE QUALITY — your artifact code is run inside a sandboxed iframe via \`sucrase\` (TSX → JS) and rendered with React 18. Sucrase is fast but unforgiving — broken syntax fails immediately. Common pitfalls that cause render failures, AVOID THEM:
+1. **Apostrophes in single-quoted strings.** \`'it's broken'\` is a syntax error. Use double quotes for any string containing an apostrophe: \`"it's fine"\`, or escape: \`'it\\'s fine'\`. Same applies to JSX attribute values.
+2. **JSX self-closing tags** must end with \`/>\`. \`<Icon className="x">\` is wrong — write \`<Icon className="x" />\`. Components without children MUST self-close.
+3. **Every opened tag needs a matching close.** \`<div>\` requires \`</div>\`, \`<ul>\` requires \`</ul>\`. Read your code top-to-bottom and verify the tag stack balances.
+4. **No truncated identifiers.** Check that variable / object key names are spelled the SAME in every reference. \`description\` ≠ \`deription\`, \`ventilation\` ≠ \`ntilation\`. A single typo crashes the whole artifact.
+5. **Numbers and units must be complete inside JSX text.** \`<strong>25% @ 200 A</strong> = 2.5 minutes\` — don't drop the \`= 2\`.
+6. **No raw \`<\` or \`{\` in JSX text** — escape with \`{"<"}\` / \`{"{"}\` if needed.
+7. **Default export required** for "react" kind: \`export default function Component() { … }\`.
+8. **Re-read your code one more time before submitting** — most failures are typos that a careful pass would catch.
+
+If a previous emission failed, the user (or the auto-fix system) will send you a message containing the error. Read it, identify the specific syntax issue, and re-emit using the same group_id with a fully corrected version.`,
         {
           kind: z.enum(["react", "html", "svg", "mermaid", "markdown"]),
           title: z.string().describe("Short user-facing title"),
           code: z.string().describe("The artifact source (no markdown fences)"),
+          group_id: z
+            .string()
+            .optional()
+            .describe(
+              "Stable id grouping versions of the same logical artifact. Reuse to emit v2/v3.",
+            ),
+          version_note: z
+            .string()
+            .optional()
+            .describe("Optional one-line note describing what changed in this version"),
         },
-        async ({ kind, title, code }): Promise<CallToolResult> => {
+        async ({ kind, title, code, group_id, version_note }): Promise<CallToolResult> => {
           const id = crypto.randomBytes(6).toString("hex");
-          bus.emit({ type: "artifact", id, kind, title, code });
+          bus.emit({
+            type: "artifact",
+            id,
+            kind,
+            title,
+            code,
+            group_id,
+            version_note,
+          });
           return textContent(
-            `Rendered ${kind} artifact "${title}" (${code.length} chars) to the user's artifact panel.`,
+            `Rendered ${kind} artifact "${title}" (${code.length} chars) to the user's artifact panel${
+              group_id ? ` (group ${group_id})` : ""
+            }.`,
           );
         },
       ),

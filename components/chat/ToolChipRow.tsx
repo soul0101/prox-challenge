@@ -1,5 +1,19 @@
 "use client";
-import { Loader2, Check, Search, FileText, Crop, Image as ImageIcon, Sparkles, HelpCircle, Layers } from "lucide-react";
+import {
+  Loader2,
+  Check,
+  Search,
+  FileText,
+  Crop,
+  Image as ImageIcon,
+  Sparkles,
+  HelpCircle,
+  Layers,
+  Code2,
+  Workflow,
+  Shapes,
+  FileCode,
+} from "lucide-react";
 import type { ToolChip } from "@/lib/client/chat-types";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -14,15 +28,46 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 const LABEL: Record<string, string> = {
-  "mcp__manual__search": "search",
-  "mcp__manual__open_page": "open page",
-  "mcp__manual__open_pages": "open pages",
-  "mcp__manual__crop_region": "crop region",
-  "mcp__manual__show_source": "show source",
-  "mcp__manual__emit_artifact": "draw",
-  "mcp__manual__ask_user": "ask",
-  "mcp__manual__list_documents": "list docs",
+  "mcp__manual__search": "Searching",
+  "mcp__manual__open_page": "Opening page",
+  "mcp__manual__open_pages": "Opening pages",
+  "mcp__manual__crop_region": "Cropping region",
+  "mcp__manual__show_source": "Surfacing source",
+  "mcp__manual__emit_artifact": "Generating artifact",
+  "mcp__manual__ask_user": "Asking",
+  "mcp__manual__list_documents": "Listing documents",
 };
+
+const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  react: Code2,
+  html: FileCode,
+  svg: Shapes,
+  mermaid: Workflow,
+  markdown: FileText,
+};
+
+const KIND_LABEL: Record<string, string> = {
+  react: "interactive React component",
+  html: "HTML artifact",
+  svg: "SVG diagram",
+  mermaid: "flowchart",
+  markdown: "markdown",
+};
+
+function chipLabel(chip: ToolChip): { label: string; Icon: React.ComponentType<{ className?: string }> } {
+  const baseIcon = ICONS[chip.name] || Sparkles;
+  const baseLabel = LABEL[chip.name] || chip.name.replace(/^mcp__manual__/, "");
+  if (chip.name.endsWith("emit_artifact")) {
+    const kind = (chip.input?.kind as string) || "";
+    if (kind && KIND_LABEL[kind]) {
+      return {
+        label: (chip.status === "running" ? "Generating " : "Drew ") + KIND_LABEL[kind],
+        Icon: KIND_ICON[kind] || baseIcon,
+      };
+    }
+  }
+  return { label: baseLabel, Icon: baseIcon };
+}
 
 function detail(chip: ToolChip): string | null {
   const i = chip.input || {};
@@ -39,18 +84,35 @@ function detail(chip: ToolChip): string | null {
 export function ToolChipRow({ chips }: { chips: ToolChip[] }) {
   if (!chips.length) return null;
   return (
-    <div className="flex flex-wrap gap-1.5 mt-1 mb-2">
+    <div className="mt-1 mb-2 flex flex-wrap gap-1.5">
       {chips.map((c) => {
-        const Icon = ICONS[c.name] || Sparkles;
+        const { label, Icon } = chipLabel(c);
         const d = detail(c);
+        const isArtifact = c.name.endsWith("emit_artifact");
         return (
           <span
             key={c.id}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary/60 px-2 py-0.5 text-[11px] text-secondary-foreground animate-fade-in"
+            className={
+              "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] animate-fade-in " +
+              (isArtifact && c.status === "running"
+                ? "border-primary/40 bg-primary/10 text-primary-foreground/90"
+                : "border-border bg-secondary/60 text-secondary-foreground")
+            }
           >
-            <Icon className="h-3 w-3 text-muted-foreground" />
-            <span className="font-medium">{LABEL[c.name] || c.name.replace(/^mcp__manual__/, "")}</span>
-            {d && <span className="text-muted-foreground truncate max-w-[160px]">· {d}</span>}
+            <Icon
+              className={
+                "h-3 w-3 " +
+                (isArtifact && c.status === "running"
+                  ? "text-primary"
+                  : "text-muted-foreground")
+              }
+            />
+            <span className="font-medium">{label}</span>
+            {d && (
+              <span className="max-w-[220px] truncate text-muted-foreground">
+                · {d}
+              </span>
+            )}
             {c.status === "running" ? (
               <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
             ) : (

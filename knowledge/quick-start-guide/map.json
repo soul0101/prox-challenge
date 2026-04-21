@@ -4,35 +4,49 @@
   "page_count": 2,
   "sections": [
     {
-      "title": "Wire Spool Installation",
+      "title": "Flux-Core Wire Setup",
       "pages": [
         1,
         1
-      ]
-    },
-    {
-      "title": "Wire Feed Setup",
-      "pages": [
-        1,
-        1
-      ]
-    },
-    {
-      "title": "Stick Welding Setup",
-      "pages": [
-        2,
-        2
       ]
     },
     {
       "title": "MIG Welding Setup",
       "pages": [
+        1,
+        1
+      ]
+    },
+    {
+      "title": "Wire Spool Installation & Threading",
+      "pages": [
+        1,
+        1
+      ]
+    },
+    {
+      "title": "Stick Welding Cable Configuration",
+      "pages": [
         2,
         2
       ]
     },
     {
-      "title": "TIG Welding Setup",
+      "title": "MIG Cable Configuration",
+      "pages": [
+        2,
+        2
+      ]
+    },
+    {
+      "title": "Flux-Core Cable Configuration",
+      "pages": [
+        2,
+        2
+      ]
+    },
+    {
+      "title": "TIG Cable Configuration",
       "pages": [
         2,
         2
@@ -40,9 +54,9 @@
     }
   ],
   "suggested_prompts": [
-    "How do I install the wire spool on the OmniPro 220?",
-    "Show me how to connect the cables for MIG welding",
-    "What are the numbered connection points for TIG setup?",
-    "Which feed guides do I thread the flux-core wire through?"
+    "How do I thread the wire through the feed system on the OmniPro 220?",
+    "What cables do I connect for TIG welding mode?",
+    "Show me the cable setup diagram for flux-core welding",
+    "What's the difference between MIG and flux-core cable connections?"
   ]
 }

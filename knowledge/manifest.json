@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-04-21T11:18:54.914Z",
+  "generated_at": "2026-04-21T15:12:30.498Z",
   "documents": [
     {
       "slug": "owner-manual",
@@ -8,7 +8,7 @@
       "source_file": "owner-manual.pdf",
       "page_count": 48,
       "hash": "52aa60b4e51e9671b85c1077c23c42fc5db852ec9626e1a3bf55f0d664964789",
-      "ingested_at": "2026-04-21T11:17:46.681Z",
+      "ingested_at": "2026-04-21T15:11:26.789Z",
       "kind": "pdf",
       "map": {
         "slug": "owner-manual",
@@ -16,95 +16,95 @@
         "page_count": 48,
         "sections": [
           {
-            "title": "Safety Warnings and Symbols",
+            "title": "Cover, Contents & Safety Warnings",
             "pages": [
               1,
               6
             ]
           },
           {
-            "title": "Specifications and Controls",
+            "title": "Specifications & Controls",
             "pages": [
               7,
               9
             ]
           },
           {
-            "title": "MIG/Flux-Cored Wire Welding Setup",
+            "title": "MIG/Flux-Cored Wire Setup",
             "pages": [
               10,
               17
             ]
           },
           {
-            "title": "MIG/Flux-Cored Wire Welding Operation",
+            "title": "MIG/Flux-Cored Wire Operation",
             "pages": [
               18,
               23
             ]
           },
           {
-            "title": "TIG/Stick Welding Setup",
+            "title": "TIG Setup & Operation",
             "pages": [
               24,
-              27
+              31
             ]
           },
           {
-            "title": "TIG/Stick Welding Operation",
+            "title": "Stick Setup & Operation",
             "pages": [
-              28,
+              27,
               33
             ]
           },
           {
-            "title": "Welding Quality Assessment and Tips",
+            "title": "Weld Quality & Troubleshooting Tips",
             "pages": [
               34,
-              34
-            ]
-          },
-          {
-            "title": "Wire Weld Troubleshooting",
-            "pages": [
-              35,
-              37
-            ]
-          },
-          {
-            "title": "Stick Weld Troubleshooting",
-            "pages": [
-              38,
               40
             ]
           },
           {
-            "title": "Maintenance and Cleaning",
+            "title": "Maintenance Procedures",
             "pages": [
               41,
               41
             ]
           },
           {
-            "title": "General Troubleshooting Tables",
+            "title": "Troubleshooting Tables",
             "pages": [
               42,
               44
             ]
           },
           {
-            "title": "Wiring Diagram, Parts List, and Warranty",
+            "title": "Wiring Schematic",
             "pages": [
               45,
+              45
+            ]
+          },
+          {
+            "title": "Parts List & Diagrams",
+            "pages": [
+              46,
+              47
+            ]
+          },
+          {
+            "title": "Warranty",
+            "pages": [
+              48,
               48
             ]
           }
         ],
         "suggested_prompts": [
-          "What wire tension should I set for MIG welding and how do I test it?",
-          "What's the difference between DCEN and DCEP polarity and when do I use each?",
-          "How do I diagnose and fix porosity in my wire welds?",
-          "What are the duty cycle limits at 120V versus 240V for MIG welding?"
+          "What polarity do I use for MIG welding solid core wire versus flux-cored wire?",
+          "How do I adjust the feed roller and tension for 0.030 inch wire?",
+          "What does porosity in my stick weld look like and how do I fix it?",
+          "What duty cycle can I run at 240V when TIG welding at 150 amps?"
         ]
       }
     },
@@ -114,7 +114,7 @@
       "source_file": "quick-start-guide.pdf",
       "page_count": 2,
       "hash": "4a44c4b18988c05b9dabaa953392f9ecd598dcc689d4a75ec2f54f06a6fa400e",
-      "ingested_at": "2026-04-21T11:18:20.052Z",
+      "ingested_at": "2026-04-21T15:12:02.358Z",
       "kind": "pdf",
       "map": {
         "slug": "quick-start-guide",
@@ -122,35 +122,49 @@
         "page_count": 2,
         "sections": [
           {
-            "title": "Wire Spool Installation",
+            "title": "Flux-Core Wire Setup",
             "pages": [
               1,
               1
-            ]
-          },
-          {
-            "title": "Wire Feed Setup",
-            "pages": [
-              1,
-              1
-            ]
-          },
-          {
-            "title": "Stick Welding Setup",
-            "pages": [
-              2,
-              2
             ]
           },
           {
             "title": "MIG Welding Setup",
             "pages": [
+              1,
+              1
+            ]
+          },
+          {
+            "title": "Wire Spool Installation & Threading",
+            "pages": [
+              1,
+              1
+            ]
+          },
+          {
+            "title": "Stick Welding Cable Configuration",
+            "pages": [
               2,
               2
             ]
           },
           {
-            "title": "TIG Welding Setup",
+            "title": "MIG Cable Configuration",
+            "pages": [
+              2,
+              2
+            ]
+          },
+          {
+            "title": "Flux-Core Cable Configuration",
+            "pages": [
+              2,
+              2
+            ]
+          },
+          {
+            "title": "TIG Cable Configuration",
             "pages": [
               2,
               2
@@ -158,10 +172,10 @@
           }
         ],
         "suggested_prompts": [
-          "How do I install the wire spool on the OmniPro 220?",
-          "Show me how to connect the cables for MIG welding",
-          "What are the numbered connection points for TIG setup?",
-          "Which feed guides do I thread the flux-core wire through?"
+          "How do I thread the wire through the feed system on the OmniPro 220?",
+          "What cables do I connect for TIG welding mode?",
+          "Show me the cable setup diagram for flux-core welding",
+          "What's the difference between MIG and flux-core cable connections?"
         ]
       }
     },
@@ -171,7 +185,7 @@
       "source_file": "selection-chart.pdf",
       "page_count": 1,
       "hash": "670497435b031e4b6c48e5cec5322979fe8ab80d4f8380406cc492fee5f710f4",
-      "ingested_at": "2026-04-21T11:18:54.914Z",
+      "ingested_at": "2026-04-21T15:12:30.498Z",
       "kind": "pdf",
       "map": {
         "slug": "selection-chart",
@@ -179,7 +193,7 @@
         "page_count": 1,
         "sections": [
           {
-            "title": "Selection Chart / How to Choose a Welder",
+            "title": "Welder Selection Chart",
             "pages": [
               1,
               1
@@ -187,10 +201,10 @@
           }
         ],
         "suggested_prompts": [
-          "What welding process should I use for thin sheet metal?",
-          "How do I choose between MIG and TIG based on material type?",
-          "What machine do I need for welding aluminum versus steel?",
-          "Which welder is best for outdoor or field repair work?"
+          "What welding process should I use for my material thickness?",
+          "How do I determine the right amperage range for my welding job?",
+          "What factors should I consider when selecting between MIG, TIG, and Stick welding?",
+          "What duty cycle do I need for my welding application?"
         ]
       }
     }

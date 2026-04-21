@@ -70,6 +70,43 @@ export async function* runAgent(args: {
   let done = false;
   let threw: Error | null = null;
 
+  /** Tool-use ids we've already emitted an early `tool_start` for, so the
+   *  final assembled message doesn't double-fire a second chip. */
+  const earlyToolStarts = new Set<string>();
+  /** Partial JSON buffer per content-block index, so we can extract
+   *  "title"/"kind" early and surface them to the UI while the agent is
+   *  still streaming the tool arguments. */
+  const toolInputBuffers = new Map<
+    number,
+    { id: string; name: string; buf: string }
+  >();
+  /** Remember the last partial input we surfaced per tool_id, so we only
+   *  fire `tool_update` when something actually changed. */
+  const lastPartial = new Map<string, string>();
+
+  function extractPartialInput(partial: string): Record<string, string> | null {
+    const out: Record<string, string> = {};
+    const t = partial.match(/"title"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if (t) {
+      try { out.title = JSON.parse(`"${t[1]}"`); } catch { /* ignore */ }
+    }
+    const k = partial.match(/"kind"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if (k) {
+      try { out.kind = JSON.parse(`"${k[1]}"`); } catch { /* ignore */ }
+    }
+    const q = partial.match(/"query"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if (q) {
+      try { out.query = JSON.parse(`"${q[1]}"`); } catch { /* ignore */ }
+    }
+    const d = partial.match(/"description"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if (d) {
+      try { out.description = JSON.parse(`"${d[1]}"`); } catch { /* ignore */ }
+    }
+    const p = partial.match(/"page"\s*:\s*(\d+)/);
+    if (p) out.page = p[1];
+    return Object.keys(out).length ? out : null;
+  }
+
   const run = (async () => {
     try {
       const stream = runQuery({
@@ -89,25 +126,79 @@ export async function* runAgent(args: {
 
       for await (const m of stream as AsyncIterable<any>) {
         if (m?.type === "stream_event") {
-          // Partial token streaming.
-          const delta = m.event?.delta;
-          if (delta?.type === "text_delta" && delta.text) {
-            queue.push({ type: "delta", text: delta.text });
-            wakeup();
+          const ev = m.event;
+          if (ev?.type === "content_block_start") {
+            const block = ev.content_block;
+            if (block?.type === "tool_use" && block.id) {
+              // Fire an early tool_start so the UI shows a chip immediately,
+              // before Claude finishes streaming the tool arguments.
+              earlyToolStarts.add(block.id);
+              toolInputBuffers.set(ev.index, {
+                id: String(block.id),
+                name: String(block.name || ""),
+                buf: "",
+              });
+              queue.push({
+                type: "tool_start",
+                name: String(block.name || ""),
+                input: {},
+                id: String(block.id),
+              });
+              wakeup();
+            }
+          } else if (ev?.type === "content_block_delta") {
+            const delta = ev.delta;
+            if (delta?.type === "text_delta" && delta.text) {
+              queue.push({ type: "delta", text: delta.text });
+              wakeup();
+            } else if (
+              delta?.type === "input_json_delta" &&
+              typeof delta.partial_json === "string"
+            ) {
+              const buf = toolInputBuffers.get(ev.index);
+              if (buf) {
+                buf.buf += delta.partial_json;
+                const partial = extractPartialInput(buf.buf);
+                if (partial) {
+                  const serialized = JSON.stringify(partial);
+                  if (lastPartial.get(buf.id) !== serialized) {
+                    lastPartial.set(buf.id, serialized);
+                    queue.push({
+                      type: "tool_update",
+                      id: buf.id,
+                      input: partial,
+                    });
+                    wakeup();
+                  }
+                }
+              }
+            }
+          } else if (ev?.type === "content_block_stop") {
+            toolInputBuffers.delete(ev.index);
           }
         } else if (m?.type === "assistant") {
-          // Final assembled assistant message — emit the full text block as
-          // "assistant" so clients that don't consume deltas still render it.
+          // Final assembled assistant message. Emit text blocks fully; for
+          // tool_use blocks we already fired an early tool_start, so send a
+          // tool_update with the complete, parsed input instead of a second
+          // tool_start chip.
           for (const c of m.message?.content || []) {
             if (c.type === "text" && c.text) {
               queue.push({ type: "assistant", text: c.text });
             } else if (c.type === "tool_use") {
-              queue.push({
-                type: "tool_start",
-                name: String(c.name || ""),
-                input: (c.input as Record<string, unknown>) || {},
-                id: String(c.id || ""),
-              });
+              if (earlyToolStarts.has(String(c.id))) {
+                queue.push({
+                  type: "tool_update",
+                  id: String(c.id),
+                  input: (c.input as Record<string, unknown>) || {},
+                });
+              } else {
+                queue.push({
+                  type: "tool_start",
+                  name: String(c.name || ""),
+                  input: (c.input as Record<string, unknown>) || {},
+                  id: String(c.id || ""),
+                });
+              }
             }
           }
           wakeup();

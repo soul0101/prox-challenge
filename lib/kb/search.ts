@@ -10,7 +10,13 @@ export interface IndexDoc {
   summary: string;
   text: string;
   keywords: string;
+  /** captions + figure keywords */
   figure_text: string;
+  /** kinds only (e.g. "schematic", "photo", "chart") so kind-typed queries hit */
+  figure_kinds: string;
+  /** table titles, separately so they outrank cell text */
+  table_titles: string;
+  /** column headers + row cells */
   table_text: string;
 }
 
@@ -19,20 +25,37 @@ export const INDEX_FIELDS: (keyof IndexDoc)[] = [
   "text",
   "keywords",
   "figure_text",
+  "figure_kinds",
+  "table_titles",
   "table_text",
   "section_hint",
 ];
 
+const BOOST = {
+  summary: 2,
+  keywords: 2.2,
+  figure_text: 1.8,
+  figure_kinds: 1.5,
+  table_titles: 2.5,
+  table_text: 1.4,
+  text: 1,
+  section_hint: 1.1,
+};
+
 export function pageToIndexDoc(page: PageRecord, docTitle: string): IndexDoc {
   const figureText = page.figures
-    .map((f) => `${f.caption} ${f.keywords.join(" ")} ${f.kind}`)
+    .map((f) => `${f.caption} ${f.keywords.join(" ")}`)
     .join(" \n ");
+  const figureKinds = page.figures
+    .map((f) => f.kind)
+    .filter(Boolean)
+    .concat(page.is_mostly_visual ? ["visual", "diagram"] : [])
+    .join(" ");
+  const tableTitles = page.tables.map((t) => t.title).filter(Boolean).join(" \n ");
   const tableText = page.tables
     .map(
       (t) =>
-        `${t.title} ${t.columns.join(" ")} ${t.rows
-          .map((r) => r.join(" "))
-          .join(" \n ")}`,
+        `${t.columns.join(" ")} ${t.rows.map((r) => r.join(" ")).join(" \n ")}`,
     )
     .join(" \n ");
   return {
@@ -45,34 +68,33 @@ export function pageToIndexDoc(page: PageRecord, docTitle: string): IndexDoc {
     text: page.text,
     keywords: page.keywords.join(" "),
     figure_text: figureText,
+    figure_kinds: figureKinds,
+    table_titles: tableTitles,
     table_text: tableText,
   };
 }
+
+const STORE_FIELDS = [
+  "doc",
+  "doc_title",
+  "page",
+  "section_hint",
+  "summary",
+  "figure_text",
+] as (keyof IndexDoc)[];
+
+const SEARCH_OPTIONS = {
+  boost: BOOST,
+  prefix: true,
+  fuzzy: 0.15,
+};
 
 export function createIndex(docs: IndexDoc[]): MiniSearch<IndexDoc> {
   const ms = new MiniSearch<IndexDoc>({
     idField: "id",
     fields: INDEX_FIELDS as string[],
-    storeFields: [
-      "doc",
-      "doc_title",
-      "page",
-      "section_hint",
-      "summary",
-      "figure_text",
-    ] as (keyof IndexDoc)[],
-    searchOptions: {
-      boost: {
-        summary: 2,
-        keywords: 2.2,
-        figure_text: 1.8,
-        table_text: 1.4,
-        text: 1,
-        section_hint: 1.1,
-      },
-      prefix: true,
-      fuzzy: 0.15,
-    },
+    storeFields: STORE_FIELDS,
+    searchOptions: SEARCH_OPTIONS,
   });
   ms.addAll(docs);
   return ms;
@@ -82,26 +104,8 @@ export function loadIndexFromJSON(json: unknown): MiniSearch<IndexDoc> {
   return MiniSearch.loadJS(json as any, {
     idField: "id",
     fields: INDEX_FIELDS as string[],
-    storeFields: [
-      "doc",
-      "doc_title",
-      "page",
-      "section_hint",
-      "summary",
-      "figure_text",
-    ] as (keyof IndexDoc)[],
-    searchOptions: {
-      boost: {
-        summary: 2,
-        keywords: 2.2,
-        figure_text: 1.8,
-        table_text: 1.4,
-        text: 1,
-        section_hint: 1.1,
-      },
-      prefix: true,
-      fuzzy: 0.15,
-    },
+    storeFields: STORE_FIELDS,
+    searchOptions: SEARCH_OPTIONS,
   });
 }
 

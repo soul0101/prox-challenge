@@ -6,123 +6,120 @@
     "height": 1190.552,
     "text": "BASIC WELDING INSTRUCTIONS AND WELDING TIPS ARE IN MANUAL. 2″ Contact Tip Nozzle HOLD GUN CLEAR WARNING To prevent serious injury, read manual warnings and instructions before use. WARNING To prevent fire and serious injury, keep torch and wire clear of grounded objects while welder plugged in. Welder Wingnut 2 lb Wire Spool Brake Pad Spacer Spindle 2 lb Spool Loading Adapter and knob required for 10-12 lb spool 2″-3″ wood block clockwise welding wire feed guides Wire Spool Feed Mechanism ®",
     "image_path": "/sources/quick-start-guide/p-001.png",
-    "summary": "Quick start guide for the Vulcan OmniPro 220 flux-core wire welder (model 57812), showing six illustrated setup steps. Steps include installing a 2 lb wire spool through both feed guides, inserting wire through the mechanism, installing the nozzle and contact tip, adjusting wire feed tension clockwise until wire bends at 2″–3″, replacing the nozzle/tip after unplugging, and plugging in while holding the gun clear to set weld thickness and other settings. Contains two safety warnings: read manual before use, and keep torch and wire clear of grounded objects while plugged in.",
-    "section_hint": "Initial Setup / Quick Start",
+    "summary": "Quick start guide page 1 for the Vulcan OmniPro 220 (model 57812) flux-core and MIG welder. Provides six sequential setup steps: connecting cables for flux-wire welding, installing the wire spool and threading wire through feed guides and mechanism, removing nozzle/tip and connecting power cord, adjusting wire feed tension by tightening the tension knob clockwise until wire bends at 2–3 inches, unplugging to replace nozzle and tip, and finally holding the gun clear while plugging in and setting weld thickness. Includes safety warnings to read manual instructions before use and to keep torch and wire clear of grounded objects while welder is plugged in.",
+    "section_hint": "Quick Start / Initial Setup",
     "figures": [
       {
-        "kind": "exploded_diagram",
-        "caption": "2 lb wire spool loading assembly showing wingnut, spacer, spindle, brake pad, welder body, and note that adapter and knob are required for 10–12 lb spool",
+        "kind": "labeled diagram",
+        "caption": "2 lb wire spool loading assembly showing wingnut, spacer, spindle, brake pad, and welder components; adapter and knob required for 10–12 lb spool",
         "keywords": [
-          "wingnut",
-          "spacer",
+          "wire spool",
           "spindle",
           "brake pad",
-          "2 lb spool",
+          "spacer",
+          "wingnut",
           "adapter",
-          "knob",
-          "10-12 lb spool"
+          "spool loading"
         ]
       },
       {
-        "kind": "diagram",
-        "caption": "Wire spool feed mechanism showing feed guides and welding wire path",
+        "kind": "labeled diagram",
+        "caption": "Wire spool feed mechanism with feed guides and welding wire path",
         "keywords": [
           "feed mechanism",
           "feed guides",
           "welding wire",
-          "wire spool"
+          "wire path"
         ]
       },
       {
-        "kind": "exploded_diagram",
-        "caption": "Welding gun components: contact tip (2″) and nozzle",
+        "kind": "labeled diagram",
+        "caption": "MIG gun showing 2-inch contact tip and nozzle components",
         "keywords": [
           "contact tip",
           "nozzle",
-          "welding gun"
+          "MIG gun",
+          "torch"
         ]
       },
       {
-        "kind": "diagram",
-        "caption": "Wire feed tension knob adjustment showing clockwise rotation direction on feed mechanism with Vulcan branding",
+        "kind": "instructional diagram",
+        "caption": "Hand pressing cold wire feed switch on welding gun while nozzle is removed",
         "keywords": [
-          "wire feed tension",
-          "knob",
+          "wire feed switch",
+          "cold feed",
+          "gun trigger"
+        ]
+      },
+      {
+        "kind": "labeled diagram",
+        "caption": "Wire feed tension knob on feed mechanism with clockwise tightening direction indicated",
+        "keywords": [
+          "tension knob",
+          "feed tension",
           "clockwise",
           "feed mechanism"
         ]
       },
       {
-        "kind": "diagram",
-        "caption": "Wire bend test using 2″–3″ wood block to verify correct tension",
+        "kind": "instructional diagram",
+        "caption": "Welding gun held clear with 2–3 inch wood block demonstrating wire bend from feed tension at proper setting",
         "keywords": [
           "wood block",
           "wire bend",
-          "tension test",
-          "2 inch",
-          "3 inch"
+          "feed tension test",
+          "gun clearance"
         ]
       },
       {
-        "kind": "diagram",
-        "caption": "Unplugging welder from wall outlet before removing nozzle and tip",
+        "kind": "instructional diagram",
+        "caption": "Power plug being removed from wall outlet with nozzle and tip replacement on MIG gun",
         "keywords": [
           "unplug",
           "power cord",
-          "wall outlet",
-          "nozzle",
-          "tip"
+          "nozzle replacement",
+          "tip replacement"
         ]
       },
       {
-        "kind": "sequence_diagram",
-        "caption": "Step 6 sequence: hold gun clear, plug into wall outlet, insert plug into welder front panel, adjust settings on Vulcan control panel showing weld thickness and other controls",
+        "kind": "instructional sequence",
+        "caption": "Step 6 showing hand holding gun clear of workpiece, then plugging into outlet, then accessing welder control panel to set weld thickness and settings",
         "keywords": [
           "hold gun clear",
           "plug in",
           "control panel",
           "weld thickness",
-          "settings",
-          "power-on sequence"
-        ]
-      },
-      {
-        "kind": "icon",
-        "caption": "Hand holding welding gun clear of workpiece with 'HOLD GUN CLEAR' label",
-        "keywords": [
-          "hold gun clear",
-          "hand position",
-          "safety"
+          "settings"
         ]
       },
       {
         "kind": "photo",
-        "caption": "Vulcan OmniPro 220 welder front control panel showing digital display, weld thickness dial, and other control knobs",
+        "caption": "Vulcan OmniPro 220 welder front control panel showing digital display and control knobs",
         "keywords": [
           "control panel",
-          "digital display",
-          "220",
-          "weld thickness",
-          "controls"
+          "display",
+          "controls",
+          "welder front"
         ]
       }
     ],
     "tables": [],
     "keywords": [
-      "Vulcan OmniPro 220",
+      "Vulcan",
+      "OmniPro 220",
       "57812",
       "flux wire welding",
-      "wire spool loading",
+      "wire spool",
+      "feed mechanism",
       "contact tip",
       "nozzle",
-      "feed mechanism",
       "wire feed tension",
-      "feed guides",
-      "2 lb spool",
-      "10-12 lb spool",
+      "tension knob",
+      "MIG gun",
       "weld thickness",
-      "hold gun clear",
-      "grounded objects"
+      "feed guides",
+      "brake pad",
+      "wire loading"
     ],
     "is_mostly_visual": true
   },
@@ -133,64 +130,66 @@
     "height": 1190.552,
     "text": "BASIC WELDING INSTRUCTIONS AND WELDING TIPS ARE IN MANUAL. ®",
     "image_path": "/sources/quick-start-guide/p-002.png",
-    "summary": "Page 2 of the Vulcan OmniPro 220 Quick Start Guide (model 57812) provides illustrated setup instructions for three welding processes: Stick, MIG, and TIG. Each diagram shows numbered cable connections to the welder terminals (positive, negative, wire feed, gas). A note directs users to the full manual for detailed welding instructions and tips. Flux-core setup is noted as reversing MIG polarity.",
-    "section_hint": "Quick Start / Initial Setup",
+    "summary": "Quick start guide page 2 for Vulcan OmniPro 220 welder (model 57812), showing setup instructions for stick, MIG, flux-core, and TIG cable configurations. Each section provides step-by-step connection diagrams with numbered callouts for ground clamps, electrode holders, wire feed power, MIG guns, TIG torches, gas lines, and foot pedals. A footer reminds users that detailed welding instructions and tips are in the full manual.",
+    "section_hint": "Quick Start Guide / Setup Instructions",
     "figures": [
       {
         "kind": "diagram",
-        "caption": "Stick cable setup showing ground clamp to negative terminal, electrode holder to positive terminal, and wire feed power disconnected",
+        "caption": "Stick cable setup diagram showing ground clamp connected to negative terminal (1), electrode holder to positive terminal (2), and wire feed power disconnected (3)",
         "keywords": [
           "stick welding",
-          "ground clamp",
           "electrode holder",
-          "negative terminal",
+          "ground clamp",
           "positive terminal",
+          "negative terminal",
           "cable routing"
         ]
       },
       {
         "kind": "diagram",
-        "caption": "MIG cable setup showing ground clamp to negative, wire feed power to positive, MIG gun to wire feed, and wire feed control inside welder",
+        "caption": "MIG cable setup diagram showing ground clamp on negative terminal (1), wire feed power on positive terminal (2), MIG gun connected to wire feed (3 and 4), and wire feed control inside welder (4)",
         "keywords": [
           "MIG welding",
           "wire feed",
           "MIG gun",
-          "wire feed control",
-          "cable connections",
-          "MIG setup"
+          "positive terminal",
+          "negative terminal",
+          "wire feed control"
         ]
       },
       {
         "kind": "diagram",
-        "caption": "TIG cable setup showing ground clamp to positive terminal, TIG torch to negative terminal, gas line to regulator, foot pedal inside welder, and wire feed power disconnected",
+        "caption": "TIG cable setup diagram showing ground clamp on positive terminal (1), TIG torch on negative terminal (2), gas line to gas regulator (3 and 4), foot pedal inside welder (4), and wire feed power disconnected (5)",
         "keywords": [
           "TIG welding",
           "TIG torch",
-          "gas line",
-          "gas regulator",
           "foot pedal",
-          "TIG setup",
-          "polarity"
+          "gas regulator",
+          "gas line",
+          "positive terminal",
+          "negative terminal"
         ]
       }
     ],
     "tables": [],
     "keywords": [
-      "Vulcan OmniPro 220",
+      "Vulcan",
+      "OmniPro 220",
       "57812",
       "stick welding",
       "MIG welding",
+      "flux-core welding",
       "TIG welding",
-      "flux-core",
       "cable setup",
       "ground clamp",
       "electrode holder",
       "wire feed",
+      "MIG gun",
       "TIG torch",
-      "foot pedal",
       "gas regulator",
-      "polarity",
-      "terminal connections"
+      "foot pedal",
+      "positive terminal",
+      "negative terminal"
     ],
     "is_mostly_visual": true
   }

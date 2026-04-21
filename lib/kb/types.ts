@@ -2,8 +2,6 @@ export interface Figure {
   kind: string;
   caption: string;
   keywords: string[];
-  /** normalised [x0,y0,x1,y1] in 0..1 page coords, if the vision pass could localise it */
-  bbox_hint?: [number, number, number, number];
 }
 
 export interface Table {

@@ -19,7 +19,7 @@ You will be given a page image from a product manual (plus OCR text when useful)
 Rules:
 - Output STRICT JSON only — no commentary, no markdown fence, no prose.
 - "summary" is 2–4 sentences covering everything substantive on the page.
-- "figures" covers diagrams, schematics, labelled photos, icons, and any visual-only information. Use SPECIFIC captions ("polarity setup showing DCEP/DCEN sockets" not "a diagram"). Include anything an operator might search for visually.
+- "figures" covers MEANINGFUL diagrams, schematics, labelled photos, charts, and visual-only information. Use SPECIFIC captions ("polarity setup showing DCEP/DCEN sockets" not "a diagram"). DO NOT list bullet icons, decorative dividers, page-corner glyphs, or repeated UI chrome — only figures a user would actually want surfaced.
 - "tables" captures structured tabular content — duty-cycle charts, selection charts, parts lists, torque tables. Rows are arrays of strings, one per column.
 - "keywords" should be 6–15 terms an operator might search for: jargon, part names, error codes, process names, settings.
 - "is_mostly_visual" = true if removing the image would destroy >50% of the page's information.

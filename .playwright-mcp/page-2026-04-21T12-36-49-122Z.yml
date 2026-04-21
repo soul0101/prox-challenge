@@ -1,0 +1,29 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - img [ref=e10]
+        - generic [ref=e12]:
+          - generic [ref=e13]: Manual Copilot
+          - generic [ref=e14]: 3 documents · 51 pages ingested
+      - button "Library" [ref=e15] [cursor=pointer]:
+        - img [ref=e16]
+        - text: Library
+    - generic [ref=e19]:
+      - generic [ref=e47]: What's the duty cycle for MIG welding at 200A on 240V? Show me the chart.
+      - generic [ref=e49]:
+        - generic [ref=e51]:
+          - img [ref=e52]
+          - generic [ref=e55]: search
+          - generic [ref=e56]: · duty cycle 200A 240V MIG chart
+          - img [ref=e57]
+        - paragraph [ref=e60]: I'll search for the duty cycle chart and show you the exact values.Perfect
+    - generic [ref=e31]:
+      - textbox "Ask about setup, troubleshooting, duty cycle, polarity…" [disabled] [ref=e32]
+      - button "Voice input" [disabled] [ref=e33]:
+        - img [ref=e34]
+      - button "Stop" [ref=e61] [cursor=pointer]:
+        - img [ref=e62]
+  - button "Open Next.js Dev Tools" [ref=e42] [cursor=pointer]:
+    - img [ref=e43]
+  - alert [ref=e3]

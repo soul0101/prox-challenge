@@ -6,140 +6,73 @@
     "height": 2400,
     "text": "",
     "image_path": "/sources/selection-chart/p-001.png",
-    "summary": "This welder selection chart guides users through choosing the appropriate welding machine and process based on six key decision factors. The chart covers questions about metal thickness, material type, metal thickness ranges, voltage requirements, typical applications, and desired portability. For each decision path, the chart recommends specific welding processes (FLUX-CORED/FCAW, MIG/GMAW, STICK/SMAW, TIG/GTAW) with brief descriptions of their characteristics and ideal use cases. An important safety warning at the top right emphasizes proper power cord selection when using extension cords with welders.",
-    "section_hint": "Selection Chart / How to Choose a Welder",
+    "summary": "This is a comprehensive welder selection chart designed to guide users through choosing the appropriate welding equipment and process. The chart is organized in six numbered steps covering wall level assessment, welding position, material type and thickness, material gauge ranges, typical applications, and welding process selection. It provides quick reference criteria for selecting between flux-core/FCAW, MIG/GMAW, stick/SMAW, and TIG/GTAW processes, with a quick guide example showing how to determine duty cycle based on amperage and usage patterns.",
+    "section_hint": "Product Selection / Getting Started",
     "figures": [
       {
         "kind": "flowchart",
-        "caption": "Six-step welder selection decision tree covering wall outlet voltage, indoor/outdoor use, material type, metal thickness, typical applications, and portability requirements",
+        "caption": "Six-step welder selection decision matrix covering wall level, position, material type, gauge range, applications, and welding process with duty cycle quick guide example",
         "keywords": [
+          "selection chart",
           "decision tree",
           "welder selection",
-          "voltage requirements",
-          "material type",
-          "metal thickness",
-          "portability"
-        ]
-      },
-      {
-        "kind": "process comparison table",
-        "caption": "Welding process comparison showing FLUX-CORED/FCAW, MIG/GMAW, STICK/SMAW, and TIG/GTAW with their key characteristics and applications",
-        "keywords": [
-          "FCAW",
-          "GMAW",
-          "SMAW",
-          "GTAW",
-          "flux-cored",
-          "MIG",
-          "stick welding",
-          "TIG welding"
-        ]
-      },
-      {
-        "kind": "safety warning",
-        "caption": "Important safety notice about proper power cord and extension cord selection to avoid motor and insulation damage",
-        "keywords": [
-          "power cord",
-          "extension cord",
-          "safety warning",
-          "motor damage"
-        ]
-      },
-      {
-        "kind": "duty cycle diagram",
-        "caption": "Duty cycle example showing 10-6-4 rule: 10 min ON, 6 min duty cycle, 4 min OFF",
-        "keywords": [
-          "duty cycle",
-          "10-6-4 rule",
-          "ON time",
-          "OFF time"
+          "process selection",
+          "duty cycle calculation"
         ]
       }
     ],
     "tables": [
       {
-        "title": "Welder Selection Criteria",
+        "title": "Welder Selection Decision Matrix",
         "columns": [
           "Step",
-          "Question",
-          "Option 1",
-          "Option 2",
-          "Option 3",
-          "Option 4"
+          "Flux-Core/FCAW",
+          "MIG/GMAW",
+          "Stick/SMAW",
+          "TIG/GTAW"
         ],
         "rows": [
           [
-            "1",
-            "What is your wall outlet?",
-            "115V/120V AC",
-            "230V/240V AC",
-            "",
-            ""
+            "1 - Wall Level",
+            "120V or 240V",
+            "120V or 240V",
+            "120V or 240V Required",
+            "240V Required"
           ],
           [
-            "2",
-            "Where are you welding?",
-            "INDOORS",
-            "OUTDOORS",
-            "NO GAS REQUIRED",
-            "GAS REQUIRED"
+            "2 - Welding Position",
+            "Flat, Horizontal, Vertical, Overhead",
+            "All Positions",
+            "All Positions",
+            "All Positions"
           ],
           [
-            "3",
-            "What type of material are you welding?",
-            "STEEL / STAINLESS STEEL",
-            "STEEL / ALUMINUM / STEEL",
-            "STEEL / STAINLESS STEEL / CAST IRON",
-            "ALL MATERIALS"
+            "3 - Material Type",
+            "Steel, Stainless Steel",
+            "Steel, Aluminum, Stainless Steel",
+            "Steel, Stainless Steel, Cast Iron",
+            "Steel, Aluminum, Stainless Steel, Exotic Metals"
           ],
           [
-            "4",
-            "What is your material thickness?",
+            "4 - Gauge Range",
             "18 Gauge to 5/16\"",
             "22 Gauge to 3/8\"",
             "16 Gauge to 1/2\"",
             "24 Gauge to 3/16\""
           ],
           [
-            "5",
-            "Typical Applications",
-            "• General steel • Light fabrication • Auto body work • Self-shielded & MIG capable",
-            "• Steel work • Automobile body • Boat work • Tractor work",
-            "• Farm and shop • Service and repair • Ornamental ironwork • Maintenance & repair",
-            "• Exhaust pipe repairs • Repair frame • Body sheet metal • Sheet or tubing"
+            "5 - Typical Applications",
+            "General steel fab, Repair fabrication, Farm and ranch, Auto restoration",
+            "Sheet metal, Automotive body, Auto & farm, Structural steel",
+            "Pipe and fitting, Structural steel, Maintenance & repair, Farm and ranch",
+            "Stainless steel work, Repair, Exotic Metals, Auto and bike tubing, Pipe and art"
           ],
           [
-            "6",
-            "Do you need portability?",
-            "NO",
-            "YES",
-            "",
-            ""
-          ]
-        ]
-      },
-      {
-        "title": "Welding Process Recommendations",
-        "columns": [
-          "Process",
-          "Characteristics"
-        ],
-        "rows": [
-          [
-            "FLUX-CORED / FCAW",
-            "• Ideal for welders or shop/contractors • Produces stronger, solid welds • Flux acts as a shield • Easily welded in windy conditions"
-          ],
-          [
-            "MIG / GMAW",
-            "• Hot-penetrating thick welding speeds • Stronger welds in many metals • Needs smooth & clean metal • Little post-weld cleanup"
-          ],
-          [
-            "STICK / SMAW",
-            "• Ideal for service or windy conditions • Produces smoother, solid welds • Flux electrode is self-shielded • Easily welded in windy conditions"
-          ],
-          [
-            "TIG / GTAW",
-            "• Highest quality welds • Provides control over parameters • Slower than other processes • Little post-weld cleanup"
+            "6 - Welding Process",
+            "Ideal for outdoor or windy conditions, Forgiving welding on dirty or rusty metal, Easy to use and economical",
+            "Fast production thick welding speeds, No slag removal, Smooth weld bead, Excellent on sheet metal",
+            "Ideal for outdoor or windy conditions, Forgiving welding on dirty metal, Easy to use, Economical",
+            "Highest quality weld, Extreme weld bead appearance, Superior control, Minimal cleanup and finishing"
           ]
         ]
       }
@@ -147,19 +80,19 @@
     "keywords": [
       "welder selection",
       "FCAW",
+      "flux-core",
       "GMAW",
+      "MIG",
       "SMAW",
-      "GTAW",
-      "MIG welding",
-      "TIG welding",
       "stick welding",
-      "flux-cored welding",
-      "material thickness",
-      "voltage requirements",
+      "GTAW",
+      "TIG",
       "duty cycle",
-      "portability",
-      "indoor outdoor welding",
-      "extension cord safety"
+      "gauge range",
+      "welding position",
+      "wall level",
+      "material thickness",
+      "process comparison"
     ],
     "is_mostly_visual": true
   }

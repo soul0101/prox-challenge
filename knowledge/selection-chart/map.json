@@ -4,7 +4,7 @@
   "page_count": 1,
   "sections": [
     {
-      "title": "Selection Chart / How to Choose a Welder",
+      "title": "Welder Selection Chart",
       "pages": [
         1,
         1
@@ -12,9 +12,9 @@
     }
   ],
   "suggested_prompts": [
-    "What welding process should I use for thin sheet metal?",
-    "How do I choose between MIG and TIG based on material type?",
-    "What machine do I need for welding aluminum versus steel?",
-    "Which welder is best for outdoor or field repair work?"
+    "What welding process should I use for my material thickness?",
+    "How do I determine the right amperage range for my welding job?",
+    "What factors should I consider when selecting between MIG, TIG, and Stick welding?",
+    "What duty cycle do I need for my welding application?"
   ]
 }

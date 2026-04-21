@@ -1,5 +1,13 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Send, BookOpen, Wrench, Square } from "lucide-react";
 import type { Manifest, ManifestEntry } from "@/lib/kb/types";
 import type {
@@ -13,15 +21,27 @@ import { Button } from "@/components/ui/button";
 import { ToolChipRow } from "./ToolChipRow";
 import { CitationText } from "./CitationText";
 import { SourceCard } from "./SourceCard";
-import { ArtifactPill } from "./ArtifactPill";
+import { ArtifactCard } from "./ArtifactCard";
+import { PendingArtifactCard } from "./PendingArtifactCard";
 import { AskBlock } from "./AskBlock";
 import { VoiceButton } from "./VoiceButton";
 
+type ArtifactEvent = {
+  id: string;
+  kind: ArtifactAttachment["versions"][number]["kind"];
+  title: string;
+  code: string;
+  group_id?: string;
+  version_note?: string;
+};
+
 type Props = {
   manifest: Manifest;
-  onOpenSource: (doc: string, page: number) => void;
-  onOpenArtifact: (artifact: ArtifactAttachment) => void;
-  activeArtifactId: string | null;
+  artifactsByGroup: Map<string, ArtifactAttachment>;
+  onOpenSource: (doc: string, page: number, attach?: SourceAttachment | null) => void;
+  onArtifactEvent: (e: ArtifactEvent, callback?: (groupId: string) => void) => void;
+  onOpenArtifact: (groupId: string, version?: number) => void;
+  activeGroupId: string | null;
   onOpenLibrary: () => void;
 };
 
@@ -29,13 +49,23 @@ function newId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-export function ChatPanel({
-  manifest,
-  onOpenSource,
-  onOpenArtifact,
-  activeArtifactId,
-  onOpenLibrary,
-}: Props) {
+export type ChatPanelHandle = {
+  /** Submit a chat message programmatically (e.g. from auto-fix flows). */
+  submit: (text: string) => void;
+};
+
+export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
+  {
+    manifest,
+    artifactsByGroup,
+    onOpenSource,
+    onArtifactEvent,
+    onOpenArtifact,
+    activeGroupId,
+    onOpenLibrary,
+  }: Props,
+  ref,
+) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -83,7 +113,7 @@ export function ChatPanel({
         content: trimmed,
         toolChips: [],
         sources: [],
-        artifacts: [],
+        artifactGroups: [],
       };
       const assistantMsg: ChatMessage = {
         id: newId(),
@@ -91,7 +121,7 @@ export function ChatPanel({
         content: "",
         toolChips: [],
         sources: [],
-        artifacts: [],
+        artifactGroups: [],
         streaming: true,
       };
       const nextHistory: ChatMessage[] = [...messages, userMsg, assistantMsg];
@@ -143,13 +173,45 @@ export function ChatPanel({
           });
           break;
         case "tool_start": {
-          const chip: ToolChip = {
-            id: String(e.id),
-            name: String(e.name),
-            status: "running",
-            input: e.input || {},
-          };
-          updateLast((m) => ({ ...m, toolChips: [...m.toolChips, chip] }));
+          const id = String(e.id);
+          updateLast((m) => {
+            // Dedupe: if we already have a chip with this id (e.g. from an
+            // earlier partial), keep it and just ensure it has the name/input.
+            const existing = m.toolChips.find((c) => c.id === id);
+            if (existing) {
+              return {
+                ...m,
+                toolChips: m.toolChips.map((c) =>
+                  c.id === id
+                    ? {
+                        ...c,
+                        name: String(e.name || c.name),
+                        input: { ...(c.input || {}), ...(e.input || {}) },
+                      }
+                    : c,
+                ),
+              };
+            }
+            const chip: ToolChip = {
+              id,
+              name: String(e.name),
+              status: "running",
+              input: e.input || {},
+            };
+            return { ...m, toolChips: [...m.toolChips, chip] };
+          });
+          break;
+        }
+        case "tool_update": {
+          const id = String(e.id);
+          updateLast((m) => ({
+            ...m,
+            toolChips: m.toolChips.map((c) =>
+              c.id === id
+                ? { ...c, input: { ...(c.input || {}), ...(e.input || {}) } }
+                : c,
+            ),
+          }));
           break;
         }
         case "tool_end": {
@@ -177,15 +239,26 @@ export function ChatPanel({
           break;
         }
         case "artifact": {
-          const a: ArtifactAttachment = {
-            id: String(e.id),
-            kind: e.kind,
-            title: String(e.title),
-            code: String(e.code),
-          };
-          updateLast((m) => ({ ...m, artifacts: [...m.artifacts, a] }));
-          // Auto-open the first artifact of a response.
-          onOpenArtifact(a);
+          onArtifactEvent(
+            {
+              id: String(e.id),
+              kind: e.kind,
+              title: String(e.title),
+              code: String(e.code),
+              group_id: e.group_id,
+              version_note: e.version_note,
+            },
+            (groupId) => {
+              // Track new groups on the in-flight assistant turn so the inline
+              // card appears in the right message. Re-emits as v2+ won't add a
+              // new group to the message — the existing card just updates.
+              updateLast((m) =>
+                m.artifactGroups.includes(groupId)
+                  ? m
+                  : { ...m, artifactGroups: [...m.artifactGroups, groupId] },
+              );
+            },
+          );
           break;
         }
         case "ask": {
@@ -205,7 +278,7 @@ export function ChatPanel({
         }
       }
     },
-    [onOpenArtifact, updateLast],
+    [onArtifactEvent, updateLast],
   );
 
   const stop = useCallback(() => {
@@ -214,6 +287,8 @@ export function ChatPanel({
     setBusy(false);
     updateLast((m) => ({ ...m, streaming: false }));
   }, [updateLast]);
+
+  useImperativeHandle(ref, () => ({ submit }), [submit]);
 
   return (
     <div className="flex h-full flex-col">
@@ -251,9 +326,10 @@ export function ChatPanel({
               key={m.id}
               message={m}
               documents={manifest.documents}
+              artifactsByGroup={artifactsByGroup}
               onOpenSource={onOpenSource}
               onOpenArtifact={onOpenArtifact}
-              activeArtifactId={activeArtifactId}
+              activeGroupId={activeGroupId}
               onPickAskOption={(text) => submit(text)}
               busy={busy}
             />
@@ -302,7 +378,7 @@ export function ChatPanel({
       </div>
     </div>
   );
-}
+});
 
 function WelcomeState({
   documents,
@@ -343,17 +419,19 @@ function WelcomeState({
 function MessageBubble({
   message,
   documents,
+  artifactsByGroup,
   onOpenSource,
   onOpenArtifact,
-  activeArtifactId,
+  activeGroupId,
   onPickAskOption,
   busy,
 }: {
   message: ChatMessage;
   documents: ManifestEntry[];
-  onOpenSource: (doc: string, page: number) => void;
-  onOpenArtifact: (a: ArtifactAttachment) => void;
-  activeArtifactId: string | null;
+  artifactsByGroup: Map<string, ArtifactAttachment>;
+  onOpenSource: (doc: string, page: number, attach?: SourceAttachment | null) => void;
+  onOpenArtifact: (groupId: string, version?: number) => void;
+  activeGroupId: string | null;
   onPickAskOption: (text: string) => void;
   busy: boolean;
 }) {
@@ -391,22 +469,44 @@ function MessageBubble({
         {message.sources.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {message.sources.map((s, i) => (
-              <SourceCard key={i} source={s} onOpen={onOpenSource} />
-            ))}
-          </div>
-        )}
-        {message.artifacts.length > 0 && (
-          <div className="mt-2 space-y-1.5">
-            {message.artifacts.map((a) => (
-              <ArtifactPill
-                key={a.id}
-                artifact={a}
-                active={activeArtifactId === a.id}
-                onOpen={() => onOpenArtifact(a)}
+              <SourceCard
+                key={i}
+                source={s}
+                onOpen={(doc, page) => onOpenSource(doc, page, s)}
               />
             ))}
           </div>
         )}
+        {(() => {
+          const pendingArtifactChips = message.toolChips.filter(
+            (c) =>
+              c.name.endsWith("emit_artifact") &&
+              c.status === "running" &&
+              message.artifactGroups.length === 0,
+          );
+          const hasContent =
+            message.artifactGroups.length > 0 || pendingArtifactChips.length > 0;
+          if (!hasContent) return null;
+          return (
+            <div className="mt-2 space-y-1.5">
+              {pendingArtifactChips.map((c) => (
+                <PendingArtifactCard key={`pending-${c.id}`} chip={c} />
+              ))}
+              {message.artifactGroups.map((gid) => {
+                const a = artifactsByGroup.get(gid);
+                if (!a) return null;
+                return (
+                  <ArtifactCard
+                    key={gid}
+                    artifact={a}
+                    active={activeGroupId === gid}
+                    onOpen={(version) => onOpenArtifact(gid, version)}
+                  />
+                );
+              })}
+            </div>
+          );
+        })()}
         {message.ask && (
           <div className="mt-2">
             <AskBlock
