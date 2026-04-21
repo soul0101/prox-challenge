@@ -1,0 +1,20 @@
+{
+  "slug": "selection-chart",
+  "title": "Selection Chart",
+  "page_count": 1,
+  "sections": [
+    {
+      "title": "Selection Chart / How to Choose a Welder",
+      "pages": [
+        1,
+        1
+      ]
+    }
+  ],
+  "suggested_prompts": [
+    "What welding process should I use for thin sheet metal?",
+    "How do I choose between MIG and TIG based on material type?",
+    "What machine do I need for welding aluminum versus steel?",
+    "Which welder is best for outdoor or field repair work?"
+  ]
+}
