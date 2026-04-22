@@ -207,6 +207,37 @@
     margin: 0.75rem 0;
   }
   .prose-chat strong { @apply font-semibold text-foreground; }
+  .prose-chat em { font-style: italic; }
+  .prose-chat table {
+    @apply w-full border-collapse text-[13px];
+  }
+  .prose-chat thead {
+    background: hsl(var(--surface-2) / 0.6);
+  }
+  .prose-chat th,
+  .prose-chat td {
+    @apply border-b border-border-subtle px-3 py-1.5 align-top text-left;
+  }
+  .prose-chat th {
+    @apply font-semibold text-fg;
+    font-size: 12px;
+    letter-spacing: 0.01em;
+  }
+  .prose-chat tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .prose-chat tbody tr:hover {
+    background: hsl(var(--surface-1) / 0.6);
+  }
+  .prose-chat td code,
+  .prose-chat th code {
+    font-size: 0.9em;
+  }
+  /* Task list checkboxes from remark-gfm */
+  .prose-chat input[type="checkbox"] {
+    @apply mr-1.5 translate-y-[1px] accent-primary;
+  }
+  .prose-chat del { opacity: 0.6; text-decoration: line-through; }
 
   /* Shimmer */
   .shimmer {
