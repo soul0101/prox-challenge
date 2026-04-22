@@ -19,7 +19,9 @@ export default function ArtifactStandalone() {
     | "html"
     | "svg"
     | "mermaid"
-    | "markdown";
+    | "markdown"
+    | "flowchart"
+    | "procedure";
   const title = params.get("title") || "Artifact";
   const k = params.get("k");
   const inlineCode = params.get("code");

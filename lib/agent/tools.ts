@@ -306,6 +306,7 @@ You do NOT write the artifact code yourself. You write a detailed SPEC, and a de
 Kinds (pick the simplest that communicates the idea):
 - "svg": inline SVG. Best for schematics, socket maps, labelled static diagrams.
 - "flowchart": DEFAULT for any decision tree / troubleshooting / diagnostic flow. You emit a small JSON spec (questions, branches, terminals, citations) — a shared React template renders it as an interactive stepper with a collapsible "show full flow" overview. Much faster and cheaper than authoring the stepper TSX from scratch, and the look is consistent across flows. See the SPEC section below for the JSON shape.
+- "procedure": DEFAULT for any LINEAR step-by-step how-to. Use whenever the user asks "how do I load/install/replace/set up X" and the manual gives an ordered procedure with photos — wire spool loading, torch assembly, gas bottle hookup, drive-roller swap, calibration sequences. You emit a small JSON spec (ordered steps with markdown body + optional manual page image per step); a shared React template renders an interactive Next/Previous stepper with progress bar, per-step image, warnings, and citations. Prefer this over "markdown" for any procedure with > 2 steps or any step that benefits from showing the manual photo. See the SPEC section below for the JSON shape.
 - "mermaid": static Mermaid diagram. Use sparingly — only for tiny at-a-glance reference diagrams (< 5 nodes) where the user just needs to see the shape, not navigate. Never use for real decision trees; use "flowchart" for those.
 - "html": standalone sandboxed HTML. Use only when React is overkill (trivial static layouts).
 - "react": React/TSX in a sandboxed iframe. Hooks + recharts + lucide-react + Tailwind preloaded. Best for calculators, configurators, charts. ESCAPE HATCH for decision trees: use "react" only if the flow genuinely needs mixed interactivity the "flowchart" template cannot express (e.g. a node that embeds a live calculator, a chart, or non-tree navigation with state that branches and merges).
@@ -331,13 +332,21 @@ The flowchart kind is schema-driven — the artifact author emits JSON that a sh
 - **Overall citations**: the manual pages that back the flow, for the footer.
 A weak flowchart spec says "a troubleshooting flow for porosity". A strong one lists ~5–10 nodes by name (check_gas → fix_gas / check_wire / …), each with its exact question, branches, and page reference.
 
+PROCEDURE SPECS (kind="procedure")
+The procedure kind is also schema-driven — a shared React template renders a Next/Previous stepper with per-step image + markdown + optional warning. Your spec should enumerate every step in order so the author can fill the schema directly:
+- **Title + subtitle**: short headline ("Loading a wire spool") + optional one-line summary.
+- **Steps (ordered)**: for each step include the exact imperative title, the markdown body (sub-steps, exact diameters / torque values / knob names verbatim from the manual), the page citation, and — critically — the manual PAGE IMAGE URL to attach. Page images live at "/sources/{doc-slug}/p-NNN.png" (zero-padded page number). If you've seen the page via open_page or search_results.page_url, include that URL under the step so the author embeds it.
+- **Warnings**: flag any step that has a real safety or equipment-damage warning in the manual (power off, don't overtighten, wear glasses) and phrase the warning as it appears in the manual.
+- **Citations**: a page range covering the whole procedure for the footer ("p.10", "p.11", "p.12", "p.15", "p.17").
+A weak procedure spec says "wire spool loading guide". A strong one lists 8–12 numbered steps, each with the exact manual wording, the page image URL, and any warning verbatim.
+
 VERSIONING
 If you are revising an existing artifact (user asked you to tweak it, add a feature, fix a visual bug), pass the SAME \`group_id\` — the UI stacks the new version as v2/v3 under the existing card. Use a fresh stable slug ("duty-cycle-calc", "porosity-tree") for brand-new artifacts.
 
 AUTO-FIX FLOW
 If a prior artifact failed to render (you'll receive an error message), call emit_artifact AGAIN with the same group_id and pass the error verbatim as \`error_context\`. The author will diagnose and fix. You don't need to guess the syntax fix — just relay the error and restate the spec.`,
         {
-          kind: z.enum(["react", "html", "svg", "mermaid", "markdown", "flowchart"]),
+          kind: z.enum(["react", "html", "svg", "mermaid", "markdown", "flowchart", "procedure"]),
           title: z.string().describe("Short user-facing title shown on the artifact card."),
           spec: z
             .string()

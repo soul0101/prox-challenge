@@ -20,6 +20,7 @@ import {
   FileCode,
   FileText,
   AlertTriangle,
+  ListChecks,
 } from "lucide-react";
 import {
   type ArtifactAttachment,
@@ -38,6 +39,7 @@ const KIND_GLYPH: Record<string, React.ComponentType<{ className?: string }>> = 
   mermaid: Workflow,
   markdown: FileText,
   flowchart: Workflow,
+  procedure: ListChecks,
 };
 
 const KIND_TINT: Record<string, { ring: string; text: string; bg: string }> = {
@@ -47,6 +49,7 @@ const KIND_TINT: Record<string, { ring: string; text: string; bg: string }> = {
   mermaid: { ring: "ring-violet-500/30", text: "text-violet-200", bg: "bg-violet-500/10" },
   markdown: { ring: "ring-zinc-500/30", text: "text-zinc-200", bg: "bg-zinc-500/10" },
   flowchart: { ring: "ring-orange-500/30", text: "text-orange-200", bg: "bg-orange-500/10" },
+  procedure: { ring: "ring-sky-500/30", text: "text-sky-200", bg: "bg-sky-500/10" },
 };
 
 export function ArtifactPanel({
@@ -505,6 +508,22 @@ function buildStandaloneHtml(v: ArtifactVersion): string {
         else if (kind === "mermaid") {
           const { svg } = await mermaid.render("m", code);
           root.innerHTML = svg;
+        } else if (kind === "procedure") {
+          // Downloads render a static linear list of all steps (no stepper UI).
+          // The in-app panel is where the interactive walk-through lives.
+          const spec = JSON.parse(code);
+          const header = '<div style="margin-bottom:20px;"><div style="font-size:22px;font-weight:700;color:#fafafa;">' + esc(spec.title) + '</div>' + (spec.subtitle ? '<div style="color:#a1a1aa;font-size:13.5px;margin-top:4px;">' + esc(spec.subtitle) + '</div>' : '') + '<div style="font-family:ui-monospace,monospace;font-size:10.5px;color:#71717a;margin-top:8px;text-transform:uppercase;letter-spacing:0.08em;">Static procedure reference &middot; ' + (spec.steps?.length || 0) + ' steps &middot; view in app for interactive stepper</div></div>';
+          const stepHtml = (spec.steps || []).map((s, i) => {
+            const num = String(i + 1).padStart(2, '0');
+            const cite = s.citation ? ' <span style="font-family:ui-monospace,monospace;color:#a1a1aa;font-size:11px;border:1px solid rgba(255,255,255,0.08);padding:2px 6px;border-radius:5px;">' + esc(s.citation) + '</span>' : '';
+            const img = s.imageUrl ? '<figure style="margin:14px 0 0;"><div style="border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;background:rgba(0,0,0,0.2);"><img src="' + esc(s.imageUrl) + '" alt="" style="display:block;max-width:100%;max-height:420px;margin:0 auto;" /></div>' + (s.imageCaption ? '<figcaption style="text-align:center;font-family:ui-monospace,monospace;font-size:10.5px;color:#71717a;margin-top:6px;text-transform:uppercase;letter-spacing:0.06em;">' + esc(s.imageCaption) + '</figcaption>' : '') + '</figure>' : '';
+            const body = '<div class="proc-body" style="margin-top:12px;color:#d4d4d8;font-size:13.5px;line-height:1.6;">' + marked.parse(s.markdown || '') + '</div>';
+            const warn = s.warning ? '<div style="margin-top:14px;padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;color:#fde68a;font-size:13px;line-height:1.5;"><span style="display:inline-block;margin-right:8px;width:18px;height:18px;background:rgba(245,158,11,0.25);color:#fcd34d;border-radius:999px;text-align:center;font-weight:700;font-size:11px;line-height:18px;">!</span>' + esc(s.warning) + '</div>' : '';
+            return '<section style="padding:20px;border:1px solid rgba(255,255,255,0.08);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.025),rgba(255,255,255,0.01));margin-bottom:14px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><div style="display:flex;align-items:center;gap:10px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;border:1px solid rgba(56,189,248,0.3);background:rgba(56,189,248,0.08);color:#bae6fd;font-family:ui-monospace,monospace;font-size:13px;font-weight:600;">' + num + '</span><div style="font-family:ui-monospace,monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(125,211,252,0.85);">Step ' + (i + 1) + ' of ' + spec.steps.length + '</div></div>' + cite + '</div><div style="margin-top:10px;font-size:18px;font-weight:600;color:#fafafa;line-height:1.3;">' + esc(s.title) + '</div>' + img + body + warn + '</section>';
+          }).join('');
+          const sources = spec.citations && spec.citations.length ? '<div style="margin-top:20px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#71717a;">Sources: ' + spec.citations.map(esc).join(', ') + '</div>' : '';
+          const style = '<style>.proc-body p{margin:0.5em 0}.proc-body ul,.proc-body ol{padding-left:1.4em;margin:0.5em 0}.proc-body li{margin:0.25em 0}.proc-body strong{color:#fafafa}.proc-body code{background:rgba(255,255,255,0.06);color:#bae6fd;padding:1.5px 6px;border-radius:4px;font-size:12px}.proc-body h1,.proc-body h2,.proc-body h3{color:#fafafa;margin:0.8em 0 0.4em}</style>';
+          root.innerHTML = style + header + stepHtml + sources;
         } else if (kind === "flowchart") {
           // Downloads render a static tree view of the flow (no interactivity).
           // The in-app panel is the place to walk through it step-by-step.

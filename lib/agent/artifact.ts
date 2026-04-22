@@ -1,6 +1,7 @@
 import { modelFor, modelForTier } from "./models";
 import { collectText, envWithApiKey, runQuery } from "./sdk-query";
 import { parseFlowchart } from "./flowchart-schema";
+import { parseProcedure } from "./procedure-schema";
 
 /**
  * Dedicated artifact author. The orchestrator (Sonnet) writes a spec — what to
@@ -20,7 +21,14 @@ import { parseFlowchart } from "./flowchart-schema";
  * (calculators, charts, non-tree navigation) the template cannot express.
  */
 
-export type ArtifactKind = "react" | "html" | "svg" | "mermaid" | "markdown" | "flowchart";
+export type ArtifactKind =
+  | "react"
+  | "html"
+  | "svg"
+  | "mermaid"
+  | "markdown"
+  | "flowchart"
+  | "procedure";
 
 const KIND_GUIDE: Record<ArtifactKind, string> = {
   react: `React + TSX in a sandboxed iframe. Export default function Component. Globals available without import statements: React, all hooks (useState, useEffect, useMemo, useRef, useCallback, useReducer). Imports that DO work: "recharts" (LineChart, BarChart, Tooltip, ResponsiveContainer, etc.), "lucide-react" (every icon). No other imports. Tailwind classes work — use them liberally. The iframe has no network, no localStorage, no window.parent tricks.
@@ -31,6 +39,7 @@ Design bar: this should look like a polished product, not a demo. Use spacing, t
   mermaid: `Mermaid source only, no code fences. Start with "flowchart TD" or "flowchart LR" or "stateDiagram-v2". Keep node labels short (< 40 chars). Use decision diamonds for branches. Add a title with --- title: "…" ---. Note: this kind is for small at-a-glance reference diagrams only. Real decision trees and troubleshooting flows should be emitted as kind=flowchart (interactive stepper + collapsible full-flow overview via the shared template), not as static mermaid.`,
   markdown: `Long-form markdown. Use sparingly — prefer react/html for interactivity. Use headings, lists, and tables. Every factual claim must cite the source page.`,
   flowchart: `A small JSON payload that drives the shared interactive-flowchart template (stepper + collapsible "show full flow" overview). See the dedicated FLOWCHART schema section for the exact shape. Output MUST be valid JSON and nothing else.`,
+  procedure: `A small JSON payload that drives the shared interactive step-by-step procedure template (Next/Previous stepper with per-step image + markdown + optional warning). See the dedicated PROCEDURE schema section for the exact shape. Output MUST be valid JSON and nothing else.`,
 };
 
 const SYSTEM_PROMPT = `You are an elite artifact author for a technical-manual assistant. You receive a SPEC describing what to build and the concrete numbers/citations extracted from the user's manual, and you output a single, complete, production-quality artifact.
@@ -139,6 +148,46 @@ NEVER
 - Emit unresolved branch targets.
 - Emit a flow where every path loops back on itself (there must be at least one terminal).`;
 
+const PROCEDURE_SYSTEM_PROMPT = `You are a procedure-spec author for a technical-manual assistant. You receive a SPEC describing a linear step-by-step procedure (e.g. "loading a new wire spool") with the exact wording, photos/pages, and citations from the user's manual, and you output a single valid JSON document that drives a pre-built interactive-stepper renderer.
+
+YOUR OUTPUT IS RAW JSON AND NOTHING ELSE.
+- First character is "{". Last character is "}".
+- No markdown fences, no prose, no "Here is the…", no comments.
+- Do not wrap in \`\`\`json … \`\`\`.
+
+SCHEMA
+{
+  "title":    string                     // short headline, e.g. "Loading a wire spool"
+  "subtitle": string?                    // one-line summary, e.g. "10-step setup for 1–12 lb spools"
+  "steps":    Step[]                     // ordered, 1+ steps
+  "citations": string[]?                 // footer citations, e.g. ["p.10", "p.11", "p.12"]
+}
+
+Step = {
+  "title":        string                 // short imperative. "Mount the spool on the spindle."
+  "markdown":     string                 // body content in GitHub-flavoured markdown. Sub-steps, bullet lists, bold, inline code, short tables are encouraged. Include exact numbers, torque values, wire diameters, etc. from the SPEC.
+  "imageUrl":     string?                // root-relative URL of a manual page image that illustrates this step. Usually "/sources/{doc-slug}/p-NNN.png" — the SPEC will list which page belongs to which step.
+  "imageCaption": string?                // one-line caption under the image. Use it to orient the reader ("Full view of the wire feed assembly — p.15").
+  "citation":     string?                // page chip shown on the step. "p.10", "Quick Start p.3".
+  "warning":      string?                // surfaces a safety warning callout on the step. Use only for real safety / equipment-damage notes from the manual — do not cry wolf.
+}
+
+QUALITY BAR
+1. Grounded. Every title / markdown / warning comes from the SPEC. Do NOT invent part names, torque values, diameters, or procedural steps. If the SPEC gives exact wording, use it.
+2. Imperative step titles. "Mount the spool" beats "Mounting the spool". "Thread the wire through the feed rollers" beats "Wire threading".
+3. Rich markdown bodies. Use numbered sub-lists for micro-steps inside a step, bullets for alternatives (e.g. "1–2 lb spool vs. 10–12 lb spool"), bold for the critical action, and inline code for exact knob names/labels when the manual styles them that way.
+4. One concept per step. Do not merge "mount the spool" and "thread the wire" into a single step. Split them. 5–12 steps is a good range; fewer if the procedure is genuinely short.
+5. Cite the page on every step that comes from the manual ("citation": "p.10"). Keep it short.
+6. Prefer attaching an image for visually-heavy steps (mounting, threading, setting tension). Text-only steps (e.g. "power off the welder") don't need an image.
+7. Warnings are for actual safety or equipment-damage notes flagged in the manual. "Power off before setup", "Do not overtighten", "Wear safety glasses".
+
+NEVER
+- Invent facts not in the SPEC.
+- Output anything other than the JSON object.
+- Wrap in markdown fences.
+- Use imageUrl values the SPEC didn't list (no guessing page numbers).
+- Collapse multi-step procedures into one giant step.`;
+
 export async function generateArtifact(args: {
   kind: ArtifactKind;
   title: string;
@@ -153,6 +202,9 @@ export async function generateArtifact(args: {
 }): Promise<string> {
   if (args.kind === "flowchart") {
     return generateFlowchart(args);
+  }
+  if (args.kind === "procedure") {
+    return generateProcedure(args);
   }
   return generateCodeArtifact(args);
 }
@@ -295,6 +347,86 @@ Output ONLY the JSON object. First character is "{". No prose, no fences, no com
 
   throw new Error(
     `flowchart author emitted invalid JSON after retry: ${secondParsed.error}`,
+  );
+}
+
+/**
+ * Procedure path. Generates a small JSON payload that the shared step-by-step
+ * template renders. Same validate-and-one-retry pattern as generateFlowchart.
+ */
+async function generateProcedure(args: {
+  title: string;
+  spec: string;
+  priorCode?: string;
+  errorContext?: string;
+  signal?: AbortSignal;
+  apiKey?: string;
+  modelTier?: string;
+}): Promise<string> {
+  const { title, spec, priorCode, errorContext } = args;
+
+  const basePrompt = (extraError?: string) => {
+    const revisionBlock = priorCode
+      ? `\n\nPRIOR VERSION (previous attempt — use for context, emit a complete new JSON):\n\`\`\`\n${priorCode.length > 4000 ? priorCode.slice(0, 4000) + "\n…[truncated]" : priorCode}\n\`\`\``
+      : "";
+    const priorErr = errorContext
+      ? `\n\nTHE PRIOR VERSION FAILED TO RENDER with this error:\n\`\`\`\n${errorContext}\n\`\`\`\nFix the specific issue in the new JSON.`
+      : "";
+    const retryErr = extraError
+      ? `\n\nYOUR PREVIOUS RESPONSE FAILED VALIDATION:\n\`\`\`\n${extraError}\n\`\`\`\nFix that specific issue. Output ONLY valid JSON matching the schema above.`
+      : "";
+
+    return `Build a procedure artifact (JSON only).
+
+TITLE: ${title}
+
+SPEC (from the orchestrator — the ordered steps, per-step page image URLs, citations, warnings):
+---
+${spec}
+---${revisionBlock}${priorErr}${retryErr}
+
+Output ONLY the JSON object. First character is "{". No prose, no fences, no commentary.`;
+  };
+
+  const runOnce = async (extraError?: string): Promise<string> => {
+    const abort = new AbortController();
+    if (args.signal) {
+      args.signal.addEventListener("abort", () => abort.abort(), { once: true });
+    }
+    const stream = runQuery({
+      prompt: basePrompt(extraError),
+      options: {
+        model: modelForTier(args.modelTier) || modelFor("qa.artifact.procedure"),
+        systemPrompt: PROCEDURE_SYSTEM_PROMPT,
+        allowedTools: [],
+        tools: [],
+        permissionMode: "bypassPermissions",
+        abortController: abort,
+        env: envWithApiKey(args.apiKey),
+      },
+    });
+    const { text, error } = await collectText(stream);
+    if (error) throw new Error(`procedure generation failed: ${error}`);
+    if (!text) throw new Error("procedure generator returned empty output");
+    return stripFences(text).trim();
+  };
+
+  // First attempt.
+  const first = await runOnce();
+  const firstParsed = parseProcedure(first);
+  if (firstParsed.ok) {
+    return JSON.stringify(firstParsed.spec);
+  }
+
+  // One self-correcting retry.
+  const second = await runOnce(firstParsed.error);
+  const secondParsed = parseProcedure(second);
+  if (secondParsed.ok) {
+    return JSON.stringify(secondParsed.spec);
+  }
+
+  throw new Error(
+    `procedure author emitted invalid JSON after retry: ${secondParsed.error}`,
   );
 }
 

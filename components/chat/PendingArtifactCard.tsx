@@ -8,6 +8,7 @@ import {
   Shapes,
   FileCode,
   FileText,
+  ListChecks,
 } from "lucide-react";
 import type { ToolChip } from "@/lib/client/chat-types";
 
@@ -17,6 +18,8 @@ const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   svg: Shapes,
   mermaid: Workflow,
   markdown: FileText,
+  flowchart: Workflow,
+  procedure: ListChecks,
 };
 
 const KIND_LABEL: Record<string, string> = {
@@ -25,6 +28,8 @@ const KIND_LABEL: Record<string, string> = {
   svg: "SVG diagram",
   mermaid: "Flowchart",
   markdown: "Markdown",
+  flowchart: "Interactive flow",
+  procedure: "Step-by-step guide",
 };
 
 /** Skeleton card shown while Claude is still streaming an artifact's code.
