@@ -9,7 +9,8 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { BookOpen, Circle } from "lucide-react";
+import { BookOpen, Circle, Settings as SettingsIcon } from "lucide-react";
+import { toPayload, useSettings } from "@/lib/client/settings";
 import type { Manifest, ManifestEntry } from "@/lib/kb/types";
 import type {
   ArtifactAttachment,
@@ -49,6 +50,7 @@ type Props = {
   onOpenArtifact: (groupId: string, version?: number) => void;
   activeGroupId: string | null;
   onOpenLibrary: () => void;
+  onOpenSettings: () => void;
 };
 
 function newId() {
@@ -69,9 +71,15 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
     onOpenArtifact,
     activeGroupId,
     onOpenLibrary,
+    onOpenSettings,
   }: Props,
   ref,
 ) {
+  const [settings] = useSettings();
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -175,6 +183,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
             history: nextHistory
               .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
               .map((m) => ({ role: m.role, content: m.content })),
+            ...toPayload(settingsRef.current),
           }),
         });
         if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
@@ -349,6 +358,14 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
             <Button variant="outline" size="sm" onClick={onOpenLibrary}>
               <BookOpen className="h-3.5 w-3.5" /> Library
             </Button>
+            <button
+              onClick={onOpenSettings}
+              className="grid h-8 w-8 place-items-center rounded-lg border border-border-subtle bg-surface-2 text-fg-dim transition-colors hover:bg-surface-3 hover:text-fg"
+              aria-label="Open settings"
+              title="Settings"
+            >
+              <SettingsIcon className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </header>

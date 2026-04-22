@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { runAgent, type ChatTurn } from "@/lib/agent/runtime";
+import { runAgent, type AgentSettings, type ChatTurn } from "@/lib/agent/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,8 +9,21 @@ function sseLine(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
+const VALID_TIERS = ["haiku", "sonnet", "opus"] as const;
+
+function pickTier(v: unknown): (typeof VALID_TIERS)[number] | undefined {
+  return typeof v === "string" && (VALID_TIERS as readonly string[]).includes(v)
+    ? (v as (typeof VALID_TIERS)[number])
+    : undefined;
+}
+
 export async function POST(req: NextRequest) {
-  let body: { history?: ChatTurn[] };
+  let body: {
+    history?: ChatTurn[];
+    apiKey?: string;
+    model?: string;
+    artifactModel?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -18,6 +31,12 @@ export async function POST(req: NextRequest) {
   }
   const history = Array.isArray(body.history) ? body.history : [];
   if (history.length === 0) return new Response("empty history", { status: 400 });
+
+  const settings: AgentSettings = {
+    apiKey: typeof body.apiKey === "string" && body.apiKey ? body.apiKey : undefined,
+    modelTier: pickTier(body.model),
+    artifactModelTier: pickTier(body.artifactModel),
+  };
 
   const abort = new AbortController();
   const onClose = () => abort.abort();
@@ -28,7 +47,7 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       controller.enqueue(encoder.encode(sseLine("status", { message: "thinking" })));
       try {
-        for await (const e of runAgent({ history, signal: abort.signal })) {
+        for await (const e of runAgent({ history, signal: abort.signal, settings })) {
           controller.enqueue(encoder.encode(sseLine(e.type, e)));
           if (e.type === "done") break;
         }

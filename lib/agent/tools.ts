@@ -38,7 +38,14 @@ function textContent(text: string): CallToolResult {
   return { content: [{ type: "text", text }] };
 }
 
-export function buildMcpServer(bus: AgentEventBus) {
+export interface ToolOverrides {
+  /** Optional user-supplied API key; forwarded to the artifact author. */
+  apiKey?: string;
+  /** Optional model tier override for the artifact author. */
+  artifactModelTier?: string;
+}
+
+export function buildMcpServer(bus: AgentEventBus, overrides: ToolOverrides = {}) {
   return createSdkMcpServer({
     name: "manual",
     tools: [
@@ -341,6 +348,8 @@ If a prior artifact failed to render (you'll receive an error message), call emi
               title,
               spec,
               errorContext: error_context,
+              apiKey: overrides.apiKey,
+              modelTier: overrides.artifactModelTier,
             });
             const id = crypto.randomBytes(6).toString("hex");
             bus.emit({

@@ -57,6 +57,16 @@ function resolveTier(value: string): string | null {
   return null;
 }
 
+/**
+ * Resolve a user-facing tier keyword (haiku/sonnet/opus) to a concrete
+ * model id. Used by the settings UI / chat API route to override the
+ * per-role default for a single request.
+ */
+export function modelForTier(tier: string | undefined): string | null {
+  if (!tier) return null;
+  return resolveTier(tier);
+}
+
 export function modelFor(role: ModelRole): string {
   const envKey = `MODEL_ROLE_${role.toUpperCase().replace(/\./g, "_")}`;
   const perRole = process.env[envKey];

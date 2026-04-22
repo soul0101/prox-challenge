@@ -5,6 +5,8 @@ import { ChatPanel, type ChatPanelHandle } from "@/components/chat/ChatPanel";
 import { ArtifactPanel } from "@/components/artifact/Panel";
 import { SourceViewer } from "@/components/source/Viewer";
 import { LibraryDrawer } from "@/components/library/Drawer";
+import { SettingsDialog } from "@/components/settings/SettingsDialog";
+import { hasOnboarded, markOnboarded, useSettings } from "@/lib/client/settings";
 import { AppShell } from "@/components/shell/AppShell";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { FileText, Sparkles } from "lucide-react";
@@ -28,6 +30,27 @@ export default function Home() {
   >(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const [settings, updateSettings, resetSettings] = useSettings();
+
+  // First-visit: auto-open settings so the user configures the API key and
+  // models before their first request. We flip the onboarded flag the moment
+  // they close the dialog, so reloading never re-triggers it.
+  useEffect(() => {
+    if (!hasOnboarded()) {
+      setIsFirstVisit(true);
+      setSettingsOpen(true);
+    }
+  }, []);
+
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    if (isFirstVisit) {
+      markOnboarded();
+      setIsFirstVisit(false);
+    }
+  }, [isFirstVisit]);
   /** Which right-panel the user last interacted with. Decides precedence when
    *  both an artifact and a source happen to be active at the same time. */
   const [rightPreference, setRightPreference] = useState<"artifact" | "source">(
@@ -280,20 +303,31 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
               onOpenArtifact={openArtifact}
               activeGroupId={activeGroupId}
               onOpenLibrary={() => setLibraryOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
             />
           </div>
         </>
       }
       overlays={
-        <LibraryDrawer
-          manifest={manifest.documents}
-          open={libraryOpen}
-          onClose={() => setLibraryOpen(false)}
-          onOpenPage={(doc, page) => {
-            openSource(doc, page);
-            setLibraryOpen(false);
-          }}
-        />
+        <>
+          <LibraryDrawer
+            manifest={manifest.documents}
+            open={libraryOpen}
+            onClose={() => setLibraryOpen(false)}
+            onOpenPage={(doc, page) => {
+              openSource(doc, page);
+              setLibraryOpen(false);
+            }}
+          />
+          <SettingsDialog
+            open={settingsOpen}
+            firstVisit={isFirstVisit}
+            settings={settings}
+            onClose={closeSettings}
+            onUpdate={updateSettings}
+            onReset={resetSettings}
+          />
+        </>
       }
     />
   );

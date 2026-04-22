@@ -15,6 +15,17 @@ export function runQuery(args: { prompt: string; options: Options }) {
 }
 
 /**
+ * Build an `env` block for SDK Options that injects a user-supplied API key.
+ * The SDK passes this env to the `claude` subprocess; `undefined` falls back
+ * to `process.env`. We merge with process.env so PATH/NODE/etc. still reach
+ * the subprocess.
+ */
+export function envWithApiKey(apiKey?: string): Options["env"] | undefined {
+  if (!apiKey) return undefined;
+  return { ...process.env, ANTHROPIC_API_KEY: apiKey };
+}
+
+/**
  * Collect the final textual assistant response from a query() stream.
  * Useful for one-shot callers (ingest, the map builder, region-locator).
  */

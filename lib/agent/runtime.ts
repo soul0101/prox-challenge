@@ -1,6 +1,6 @@
 import { loadKB } from "@/lib/kb/load";
-import { modelFor } from "./models";
-import { runQuery } from "./sdk-query";
+import { modelFor, modelForTier } from "./models";
+import { envWithApiKey, runQuery } from "./sdk-query";
 import { AgentEventBus, type AgentEvent } from "./events";
 import { allowedToolNames, buildMcpServer } from "./tools";
 import { buildSystemPrompt } from "./system";
@@ -8,6 +8,15 @@ import { buildSystemPrompt } from "./system";
 export interface ChatTurn {
   role: "user" | "assistant";
   content: string;
+}
+
+export interface AgentSettings {
+  /** Optional user-supplied API key; overrides server env for this call. */
+  apiKey?: string;
+  /** Override the orchestrator model tier for this call. */
+  modelTier?: string;
+  /** Override the artifact-author model tier for this call. */
+  artifactModelTier?: string;
 }
 
 /**
@@ -18,8 +27,9 @@ export interface ChatTurn {
 export async function* runAgent(args: {
   history: ChatTurn[];
   signal?: AbortSignal;
+  settings?: AgentSettings;
 }): AsyncGenerator<AgentEvent> {
-  const { history } = args;
+  const { history, settings } = args;
   const last = history[history.length - 1];
   if (!last || last.role !== "user") {
     yield { type: "error", message: "No user message to respond to." };
@@ -61,7 +71,10 @@ export async function* runAgent(args: {
     ? `Conversation so far:\n${priorContext}\n\n[USER just said] ${last.content}`
     : last.content;
 
-  const mcp = buildMcpServer(bus);
+  const mcp = buildMcpServer(bus, {
+    apiKey: settings?.apiKey,
+    artifactModelTier: settings?.artifactModelTier,
+  });
   const abort = new AbortController();
   if (args.signal) {
     args.signal.addEventListener("abort", () => abort.abort(), { once: true });
@@ -109,10 +122,11 @@ export async function* runAgent(args: {
 
   const run = (async () => {
     try {
+      const overrideModel = modelForTier(settings?.modelTier);
       const stream = runQuery({
         prompt,
         options: {
-          model: modelFor("qa.orchestrator"),
+          model: overrideModel || modelFor("qa.orchestrator"),
           systemPrompt: buildSystemPrompt(manifest),
           mcpServers: { manual: mcp },
           allowedTools: allowedToolNames(),
@@ -121,6 +135,7 @@ export async function* runAgent(args: {
           permissionMode: "bypassPermissions",
           abortController: abort,
           includePartialMessages: true,
+          env: envWithApiKey(settings?.apiKey),
         },
       });
 

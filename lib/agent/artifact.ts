@@ -1,5 +1,5 @@
-import { modelFor } from "./models";
-import { collectText, runQuery } from "./sdk-query";
+import { modelFor, modelForTier } from "./models";
+import { collectText, envWithApiKey, runQuery } from "./sdk-query";
 
 /**
  * Dedicated artifact author. The orchestrator (Sonnet) writes a spec — what to
@@ -65,6 +65,10 @@ export async function generateArtifact(args: {
   priorCode?: string;
   errorContext?: string;
   signal?: AbortSignal;
+  /** Per-request API key override (forwarded to the SDK subprocess env). */
+  apiKey?: string;
+  /** Per-request model tier override (haiku/sonnet/opus). */
+  modelTier?: string;
 }): Promise<string> {
   const { kind, title, spec, priorCode, errorContext } = args;
 
@@ -98,12 +102,13 @@ Output ONLY the artifact body. No prose. No fences. No commentary. First charact
   const stream = runQuery({
     prompt,
     options: {
-      model: modelFor("qa.artifact"),
+      model: modelForTier(args.modelTier) || modelFor("qa.artifact"),
       systemPrompt: SYSTEM_PROMPT,
       allowedTools: [],
       tools: [],
       permissionMode: "bypassPermissions",
       abortController: abort,
+      env: envWithApiKey(args.apiKey),
     },
   });
 
