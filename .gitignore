@@ -11,3 +11,4 @@ tsconfig.tsbuildinfo
 .claude
 TASK.md
 TESTS.md
+.vercel
