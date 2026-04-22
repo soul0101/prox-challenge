@@ -33,18 +33,32 @@ export function runQuery(args: { prompt: string; options: Options }) {
  * the subprocess.
  */
 export function envWithApiKey(apiKey?: string): Options["env"] | undefined {
-  // The claude CLI writes to $HOME/.claude/… for session state, logs, and
-  // other scratch files. On Vercel serverless, $HOME points to a read-only
-  // path; only /tmp is writable. Redirect HOME (and XDG_* fallbacks) to
-  // /tmp so the subprocess can initialise cleanly. Safe locally too — the
-  // SDK's CLI doesn't reach into HOME for real config when
-  // ANTHROPIC_API_KEY is provided.
+  // The `claude` CLI writes session state to `$CLAUDE_CONFIG_DIR` (default
+  // `$HOME/.claude`) at startup. On Vercel serverless, $HOME resolves to
+  // `/home/sbx_userNNNN` whose parent `/home` doesn't exist, and only
+  // `/tmp` is writable — so the CLI crashes with ENOENT before it can
+  // answer.
+  //
+  // The SDK reads this path in sdk.mjs:
+  //   `return process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude")`
+  // so setting CLAUDE_CONFIG_DIR is the officially-supported escape hatch.
+  // See: https://code.claude.com/docs/en/env-vars and
+  //      https://github.com/anthropics/claude-agent-sdk-typescript/issues/84
+  //
+  // We also override HOME + XDG_* as belt-and-suspenders for any code path
+  // that reads HOME directly. Gate on `VERCEL` so local behaviour — where
+  // the user may be signed into the real `claude` CLI at `~/.claude/` —
+  // is unchanged.
   const overrides: Record<string, string> = {};
   if (process.env.VERCEL) {
+    overrides.CLAUDE_CONFIG_DIR = "/tmp/.claude";
     overrides.HOME = "/tmp";
     overrides.XDG_CONFIG_HOME = "/tmp";
     overrides.XDG_CACHE_HOME = "/tmp";
     overrides.XDG_DATA_HOME = "/tmp";
+    // The CLI opportunistically writes a rotating debug-logs dir. Pin it to
+    // /tmp so a future debug toggle doesn't re-break the boot.
+    overrides.CLAUDE_CODE_DEBUG_LOGS_DIR = "/tmp/.claude/debug";
   }
   if (apiKey) overrides.ANTHROPIC_API_KEY = apiKey;
 
