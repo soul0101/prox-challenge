@@ -11,7 +11,19 @@ import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
  * so the whole app authenticates via the user's existing Claude login.
  */
 export function runQuery(args: { prompt: string; options: Options }) {
-  return sdkQuery({ prompt: args.prompt, options: args.options });
+  // Capture the subprocess's stderr. The SDK's default is `"ignore"` which
+  // means when the `claude` CLI crashes the only surface is
+  // `Claude Code process exited with code 1` — not diagnosable in prod.
+  // Forwarding to console.error lands the real error in Vercel's runtime
+  // logs (`vercel logs <url> --expand`).
+  const withStderr: Options = {
+    ...args.options,
+    stderr: (msg: string) => {
+      if (args.options.stderr) args.options.stderr(msg);
+      console.error("[claude-cli stderr]", msg);
+    },
+  };
+  return sdkQuery({ prompt: args.prompt, options: withStderr });
 }
 
 /**
