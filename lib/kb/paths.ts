@@ -4,7 +4,6 @@ export const ROOT = process.cwd();
 export const SOURCES_DIR = path.join(ROOT, "files");
 export const KB_DIR = path.join(ROOT, "knowledge");
 export const PUBLIC_SOURCES_DIR = path.join(ROOT, "public", "sources");
-export const CROPS_DIR = path.join(ROOT, "public", "crops");
 
 export const paths = {
   manifest: () => path.join(KB_DIR, "manifest.json"),
@@ -15,10 +14,6 @@ export const paths = {
     path.join(PUBLIC_SOURCES_DIR, slug, `p-${String(page).padStart(3, "0")}.png`),
   pageImageUrl: (slug: string, page: number) =>
     `/sources/${slug}/p-${String(page).padStart(3, "0")}.png`,
-  crop: (slug: string, page: number, id: string) =>
-    path.join(CROPS_DIR, slug, `p-${String(page).padStart(3, "0")}-${id}.png`),
-  cropUrl: (slug: string, page: number, id: string) =>
-    `/crops/${slug}/p-${String(page).padStart(3, "0")}-${id}.png`,
 };
 
 export function slugify(name: string): string {

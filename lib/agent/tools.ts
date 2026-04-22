@@ -207,14 +207,17 @@ export function buildMcpServer(bus: AgentEventBus, overrides: ToolOverrides = {}
           if (!located) return textContent(`no matching region found on p.${page}`);
 
           const crop = await cropPage({ slug: doc, page, bbox: located.bbox });
-          const buf = await fs.readFile(crop.file);
           return {
             content: [
               {
                 type: "text",
-                text: `Cropped region of p.${page} in "${doc}": ${located.reason}.\nCrop URL: ${crop.url}\nBBox: [${located.bbox.map((v) => v.toFixed(3)).join(", ")}]`,
+                text: `Cropped region of p.${page} in "${doc}": ${located.reason}.\nBBox: [${located.bbox.map((v) => v.toFixed(3)).join(", ")}]`,
               },
-              { type: "image", data: buf.toString("base64"), mimeType: "image/png" },
+              {
+                type: "image",
+                data: crop.buffer.toString("base64"),
+                mimeType: "image/png",
+              },
             ],
           };
         },
