@@ -1,0 +1,97 @@
+{
+  "slug": "owner-manual",
+  "title": "Owner Manual",
+  "page_count": 48,
+  "sections": [
+    {
+      "title": "Cover & Table of Contents",
+      "pages": [
+        1,
+        1
+      ]
+    },
+    {
+      "title": "Safety Instructions",
+      "pages": [
+        2,
+        6
+      ]
+    },
+    {
+      "title": "Specifications",
+      "pages": [
+        7,
+        7
+      ]
+    },
+    {
+      "title": "Controls & Components",
+      "pages": [
+        8,
+        9
+      ]
+    },
+    {
+      "title": "MIG / Flux-Cored Wire Setup",
+      "pages": [
+        10,
+        17
+      ]
+    },
+    {
+      "title": "Basic Wire Welding Operation",
+      "pages": [
+        18,
+        23
+      ]
+    },
+    {
+      "title": "TIG & Stick Setup",
+      "pages": [
+        24,
+        27
+      ]
+    },
+    {
+      "title": "Basic TIG / Stick Welding Operation",
+      "pages": [
+        28,
+        33
+      ]
+    },
+    {
+      "title": "Welding Tips & Weld Diagnosis",
+      "pages": [
+        34,
+        40
+      ]
+    },
+    {
+      "title": "Maintenance & Troubleshooting",
+      "pages": [
+        41,
+        44
+      ]
+    },
+    {
+      "title": "Wiring Schematic & Parts Diagram",
+      "pages": [
+        45,
+        47
+      ]
+    },
+    {
+      "title": "Warranty",
+      "pages": [
+        48,
+        48
+      ]
+    }
+  ],
+  "suggested_prompts": [
+    "Show me the front panel controls and explain what each knob and button does.",
+    "What polarity should I use for flux-cored vs. solid-wire MIG vs. stick welding?",
+    "My MIG weld has porosity and excessive spatter — what's likely wrong and how do I fix it?",
+    "How long can I weld at 200 amps on 240V before the duty cycle trips, and how do I calculate safe run times?"
+  ]
+}

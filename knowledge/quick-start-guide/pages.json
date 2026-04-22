@@ -1,0 +1,184 @@
+[
+  {
+    "doc": "quick-start-guide",
+    "page": 1,
+    "width": 839.056,
+    "height": 1190.552,
+    "text": "BASIC WELDING INSTRUCTIONS AND WELDING TIPS ARE IN MANUAL. 2″ Contact Tip Nozzle HOLD GUN CLEAR WARNING To prevent serious injury, read manual warnings and instructions before use. WARNING To prevent fire and serious injury, keep torch and wire clear of grounded objects while welder plugged in. Welder Wingnut 2 lb Wire Spool Brake Pad Spacer Spindle 2 lb Spool Loading Adapter and knob required for 10-12 lb spool 2″-3″ wood block clockwise welding wire feed guides Wire Spool Feed Mechanism ®",
+    "image_path": "/sources/quick-start-guide/p-001.png",
+    "summary": "Vulcan OmniPro 220 (model 57812) Quick Start Guide page 1 presents a six-step visual walkthrough for setting up flux-core wire welding. Steps cover cable connection, wire spool installation with labelled spool stack (wingnut, spacer, spindle, brake pad) and feed mechanism threading, removing nozzle/tip to feed wire, incrementally tightening the wire feed tension knob clockwise until wire bends at 2-3 inches from a wood block, replacing nozzle and tip, and finally powering on and configuring weld thickness. Two safety warnings advise reading the manual and keeping torch/wire clear of grounded objects while plugged in.",
+    "section_hint": "Quick Start Guide — Setup Procedure (front side)",
+    "figures": [
+      {
+        "kind": "exploded diagram",
+        "caption": "2 lb wire spool loading stack showing wingnut, spacer, spindle, 2 lb wire spool, brake pad, and welder; note that adapter and knob are required for 10-12 lb spool",
+        "keywords": [
+          "spool loading",
+          "wingnut",
+          "spindle",
+          "brake pad",
+          "2 lb spool",
+          "10-12 lb adapter"
+        ]
+      },
+      {
+        "kind": "schematic",
+        "caption": "Feed mechanism with wire spool, feed guides, and welding wire routing for step 2",
+        "keywords": [
+          "feed mechanism",
+          "feed guides",
+          "wire spool",
+          "threading"
+        ]
+      },
+      {
+        "kind": "labelled illustration",
+        "caption": "MIG gun tip assembly identifying 2-inch contact tip and nozzle to be removed in step 3",
+        "keywords": [
+          "contact tip",
+          "nozzle",
+          "2 inch",
+          "MIG gun"
+        ]
+      },
+      {
+        "kind": "illustration",
+        "caption": "Cold wire feed switch being pressed on welder front panel until wire emerges",
+        "keywords": [
+          "cold wire feed",
+          "welder switch",
+          "step 3"
+        ]
+      },
+      {
+        "kind": "diagram",
+        "caption": "Clockwise tightening of wire feed tension knob with wire bending 2-3 inches over a wood block to verify tension",
+        "keywords": [
+          "feed tension knob",
+          "clockwise",
+          "wood block",
+          "wire bend test",
+          "step 4"
+        ]
+      },
+      {
+        "kind": "pictogram sequence",
+        "caption": "Step 5: unplug welder from wall outlet before replacing nozzle and tip",
+        "keywords": [
+          "unplug",
+          "outlet",
+          "nozzle replace",
+          "safety"
+        ]
+      },
+      {
+        "kind": "pictogram sequence",
+        "caption": "Step 6: hold gun clear, plug welder into outlet, flip power switch, and set thickness/controls on OmniPro 220 front panel",
+        "keywords": [
+          "hold gun clear",
+          "power on",
+          "control panel",
+          "weld thickness"
+        ]
+      }
+    ],
+    "tables": [],
+    "keywords": [
+      "Vulcan OmniPro 220",
+      "57812",
+      "quick start guide",
+      "flux core welding",
+      "wire spool loading",
+      "feed mechanism",
+      "feed tension knob",
+      "contact tip",
+      "nozzle",
+      "cold wire feed",
+      "wire feed guides",
+      "MIG welder setup",
+      "wood block tension test",
+      "DCEP"
+    ],
+    "is_mostly_visual": true
+  },
+  {
+    "doc": "quick-start-guide",
+    "page": 2,
+    "width": 839.056,
+    "height": 1190.552,
+    "text": "BASIC WELDING INSTRUCTIONS AND WELDING TIPS ARE IN MANUAL. ®",
+    "image_path": "/sources/quick-start-guide/p-002.png",
+    "summary": "Vulcan OmniPro 220 (model 57812) Quick Start Guide showing cable setup procedures for four welding processes. Covers Stick, MIG, Flux-core, and TIG cable connections with numbered steps keyed to illustrations of the welder's front panel terminals. Each process specifies ground clamp polarity, electrode/torch/gun connections, and wire feed power routing. Notes that basic welding instructions and tips are in the main manual.",
+    "section_hint": "Quick Start Guide — Cable Setup Procedures",
+    "figures": [
+      {
+        "kind": "labelled diagram",
+        "caption": "Stick cable setup: ground clamp to negative terminal (1), electrode holder to positive terminal (2), wire feed power disconnected (3)",
+        "keywords": [
+          "stick welding",
+          "SMAW",
+          "DCEP",
+          "electrode holder",
+          "ground clamp",
+          "polarity"
+        ]
+      },
+      {
+        "kind": "labelled diagram",
+        "caption": "MIG cable setup: ground clamp to negative (1), wire feed power to positive (2), MIG gun to wire feed (3), wire feed control inside welder (4)",
+        "keywords": [
+          "MIG",
+          "GMAW",
+          "wire feed",
+          "MIG gun",
+          "polarity",
+          "DCEP"
+        ]
+      },
+      {
+        "kind": "labelled diagram",
+        "caption": "TIG cable setup: ground clamp to positive (1), TIG torch to negative (2), gas line to regulator (3), foot pedal inside welder (4), wire feed disconnected (5)",
+        "keywords": [
+          "TIG",
+          "GTAW",
+          "DCEN",
+          "TIG torch",
+          "foot pedal",
+          "gas line",
+          "regulator"
+        ]
+      }
+    ],
+    "tables": [
+      {
+        "title": "Flux Cable Setup",
+        "columns": [
+          "Instruction"
+        ],
+        "rows": [
+          [
+            "Follow MIG cable setup but connect ground clamp to positive terminal and wire feed power to negative terminal."
+          ]
+        ]
+      }
+    ],
+    "keywords": [
+      "Vulcan OmniPro 220",
+      "57812",
+      "stick cable setup",
+      "MIG cable setup",
+      "flux cable setup",
+      "TIG cable setup",
+      "ground clamp",
+      "electrode holder",
+      "wire feed",
+      "polarity",
+      "positive terminal",
+      "negative terminal",
+      "foot pedal",
+      "gas regulator",
+      "quick start"
+    ],
+    "is_mostly_visual": true
+  }
+]

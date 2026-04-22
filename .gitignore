@@ -1,0 +1,14 @@
+*.log
+.DS_Store
+.env
+.env.local
+.ingest-cache
+.next
+.tsbuildinfo
+next-env.d.ts
+node_modules
+tsconfig.tsbuildinfo
+.claude
+TASK.md
+TESTS.md
+.vercel

@@ -1,0 +1,10 @@
+# Source PDFs are only used at ingest time (npm run ingest). The runtime
+# reads from knowledge/ and public/sources/ which are committed.
+files/
+
+# Local-only dirs.
+.env
+.env.local
+
+# Runtime-generated crops are rebuilt on demand (on Vercel, to /tmp).
+public/crops/

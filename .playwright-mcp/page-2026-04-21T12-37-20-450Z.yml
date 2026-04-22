@@ -1,0 +1,59 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - img [ref=e10]
+        - generic [ref=e12]:
+          - generic [ref=e13]: Manual Copilot
+          - generic [ref=e14]: 3 documents · 51 pages ingested
+      - button "Library" [ref=e15] [cursor=pointer]:
+        - img [ref=e16]
+        - text: Library
+    - generic [ref=e19]:
+      - generic [ref=e47]: What's the duty cycle for MIG welding at 200A on 240V? Show me the chart.
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - img [ref=e52]
+            - generic [ref=e55]: search
+            - generic [ref=e56]: · duty cycle 200A 240V MIG chart
+            - img [ref=e57]
+          - generic [ref=e64]:
+            - img [ref=e65]
+            - generic [ref=e68]: open page
+            - generic [ref=e69]: · p.19
+            - img [ref=e70]
+          - generic [ref=e72]:
+            - img [ref=e73]
+            - generic [ref=e75]: show_figure
+            - img [ref=e76]
+        - generic [ref=e59]:
+          - paragraph [ref=e60]:
+            - text: I'll search for the duty cycle chart and show you the exact values.Perfect! Let me open page 19 which has the duty cycle chart for 240V MIG welding.Perfect! Now let me show you the specific chart for 240V operation.
+            - strong [ref=e78]: At 200A on 240V, the duty cycle is 25%.
+          - paragraph [ref=e79]:
+            - text: "That means: -"
+            - strong [ref=e80]: Weld for 2.5 minutes
+            - text: ", then rest for 7.5 minutes (within every 10-minute period) - At 115A on 240V, you can weld continuously (100% duty cycle)"
+          - paragraph [ref=e81]:
+            - text: The chart shows this visually as a pie chart where the dark segment represents welding time and the white segment represents required cooling/resting time
+            - button "owner-manual p.19" [ref=e82] [cursor=pointer]
+            - text: .
+          - paragraph [ref=e83]: If you exceed the duty cycle, the welder has automatic thermal shutdown protection and will display a warning on the LCD screen.
+        - button "Duty cycle chart for 240VAC MIG welding Owner Manual · p.19 Duty cycle chart for 240VAC MIG welding open in source viewer" [ref=e85] [cursor=pointer]:
+          - generic [ref=e86]:
+            - img "Duty cycle chart for 240VAC MIG welding" [ref=e87]
+            - generic [ref=e88]: Owner Manual · p.19
+          - generic [ref=e89]: Duty cycle chart for 240VAC MIG welding
+          - generic [ref=e90]:
+            - img [ref=e91]
+            - text: open in source viewer
+    - generic [ref=e31]:
+      - textbox "Ask about setup, troubleshooting, duty cycle, polarity…" [ref=e32]
+      - button "Voice input" [ref=e33] [cursor=pointer]:
+        - img [ref=e34]
+      - button "Send" [disabled]:
+        - img
+  - button "Open Next.js Dev Tools" [ref=e42] [cursor=pointer]:
+    - img [ref=e43]
+  - alert [ref=e3]

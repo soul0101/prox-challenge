@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>artifact</title>
+    <script>
+      // Runtime-wide defaults so artifacts that forget them still look OK.
+      document.documentElement.style.backgroundColor = "transparent";
+    </script>
+    <script src="https://cdn.tailwindcss.com?plugins=typography,forms,aspect-ratio"></script>
+    <style>
+      :root { color-scheme: dark light; }
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        color: #e8eaee;
+        background: transparent;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Inter", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      #root { padding: 16px; }
+      .artifact-err {
+        font-family: ui-monospace, Menlo, monospace;
+        background: #2a1111;
+        color: #fca5a5;
+        padding: 14px 16px;
+        border: 1px solid #5b2222;
+        border-radius: 10px;
+        white-space: pre-wrap;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .mermaid-root svg { max-width: 100%; height: auto; }
+      .prose-chat p { margin: 0.6em 0; }
+      .prose-chat h1, .prose-chat h2, .prose-chat h3 { font-weight: 600; margin: 0.8em 0 0.4em; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.3.1",
+          "react-dom": "https://esm.sh/react-dom@18.3.1",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+          "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+          "recharts": "https://esm.sh/recharts@2.12.7?deps=react@18.3.1,react-dom@18.3.1",
+          "lucide-react": "https://esm.sh/lucide-react@0.471.0?deps=react@18.3.1",
+          "framer-motion": "https://esm.sh/framer-motion@11.15.0?deps=react@18.3.1,react-dom@18.3.1",
+          "clsx": "https://esm.sh/clsx@2.1.1",
+          "sucrase": "https://esm.sh/sucrase@3.35.0",
+          "mermaid": "https://esm.sh/mermaid@11.4.1",
+          "marked": "https://esm.sh/marked@14.1.4"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import React from "react";
+      import { createRoot } from "react-dom/client";
+      import { transform } from "sucrase";
+      import mermaid from "mermaid";
+      import { marked } from "marked";
+
+      let currentRoot = null;
+      const rootEl = document.getElementById("root");
+
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "dark",
+        darkMode: true,
+        themeVariables: {
+          primaryColor: "#ea7f27",
+          primaryTextColor: "#fff",
+          lineColor: "#888",
+          background: "transparent",
+        },
+      });
+
+      function unmount() {
+        if (currentRoot) {
+          try { currentRoot.unmount(); } catch {}
+          currentRoot = null;
+        }
+        rootEl.innerHTML = "";
+      }
+
+      function renderError(msg) {
+        unmount();
+        const pre = document.createElement("pre");
+        pre.className = "artifact-err";
+        pre.textContent = String(msg);
+        rootEl.appendChild(pre);
+        post({ type: "error", message: String(msg) });
+      }
+
+      function post(msg) {
+        try { parent.postMessage({ __artifact: true, ...msg }, "*"); } catch {}
+      }
+
+      function renderSvg(code) {
+        unmount();
+        const wrap = document.createElement("div");
+        wrap.className = "flex items-center justify-center";
+        wrap.innerHTML = code;
+        const svg = wrap.querySelector("svg");
+        if (svg) {
+          svg.setAttribute("style", (svg.getAttribute("style") || "") + ";max-width:100%;height:auto;");
+        }
+        rootEl.appendChild(wrap);
+        post({ type: "rendered", kind: "svg" });
+      }
+
+      function renderHtml(code) {
+        unmount();
+        const wrap = document.createElement("div");
+        wrap.innerHTML = code;
+        // Execute any <script> tags the artifact included.
+        wrap.querySelectorAll("script").forEach((old) => {
+          const s = document.createElement("script");
+          for (const attr of old.attributes) s.setAttribute(attr.name, attr.value);
+          s.textContent = old.textContent;
+          old.replaceWith(s);
+        });
+        rootEl.appendChild(wrap);
+        post({ type: "rendered", kind: "html" });
+      }
+
+      async function renderMermaid(code) {
+        unmount();
+        const wrap = document.createElement("div");
+        wrap.className = "mermaid-root";
+        rootEl.appendChild(wrap);
+        try {
+          const id = "m-" + Math.random().toString(36).slice(2);
+          const { svg, bindFunctions } = await mermaid.render(id, code);
+          wrap.innerHTML = svg;
+          bindFunctions?.(wrap);
+          post({ type: "rendered", kind: "mermaid" });
+        } catch (err) {
+          renderError("mermaid: " + (err?.message || err));
+        }
+      }
+
+      function renderMarkdown(code) {
+        unmount();
+        const wrap = document.createElement("div");
+        wrap.className = "prose prose-invert prose-chat max-w-none";
+        wrap.innerHTML = marked.parse(code);
+        rootEl.appendChild(wrap);
+        post({ type: "rendered", kind: "markdown" });
+      }
+
+      // Strip any `import ... from "react"` lines the agent may have included.
+      // We already inject React + common hooks below, so duplicates cause
+      // "Identifier 'React' has already been declared" at module-eval time.
+      function sanitizeReactCode(src) {
+        // Remove: import React, { ... } from 'react' / "react"
+        //         import { useState, useEffect } from 'react'
+        //         import React from "react"
+        //         import * as React from 'react'
+        return src.replace(
+          /^[ \t]*import\s+(?:[\w*{}\s,]+\s+from\s+)?['"]react['"][\s;]*$/gm,
+          "",
+        );
+      }
+
+      async function renderReact(code) {
+        unmount();
+        // Transform TSX → JS, then import it as a module via a blob URL.
+        let transformed;
+        try {
+          const pre =
+            "import React from 'react';\n" +
+            "import { useState, useEffect, useRef, useMemo, useCallback, useReducer, useLayoutEffect, useContext, createContext, Fragment } from 'react';\n";
+          const cleaned = sanitizeReactCode(code);
+          transformed = transform(pre + cleaned, {
+            transforms: ["typescript", "jsx"],
+            jsxRuntime: "classic",
+            production: true,
+          }).code;
+        } catch (err) {
+          renderError("sucrase: " + (err?.message || err));
+          return;
+        }
+
+        const blob = new Blob([transformed], { type: "text/javascript" });
+        const url = URL.createObjectURL(blob);
+        let mod;
+        try {
+          mod = await import(url);
+        } catch (err) {
+          URL.revokeObjectURL(url);
+          renderError("import: " + (err?.message || err));
+          return;
+        }
+        URL.revokeObjectURL(url);
+
+        const Component = mod.default;
+        if (typeof Component !== "function") {
+          renderError("artifact has no default export (or it is not a function)");
+          return;
+        }
+
+        class Boundary extends React.Component {
+          constructor(p) { super(p); this.state = { err: null }; }
+          static getDerivedStateFromError(err) { return { err }; }
+          componentDidCatch(err) { post({ type: "error", message: String(err?.stack || err) }); }
+          render() {
+            if (this.state.err) {
+              return React.createElement("pre", { className: "artifact-err" }, String(this.state.err.stack || this.state.err));
+            }
+            return this.props.children;
+          }
+        }
+
+        try {
+          currentRoot = createRoot(rootEl);
+          currentRoot.render(React.createElement(Boundary, null, React.createElement(Component)));
+          post({ type: "rendered", kind: "react" });
+        } catch (err) {
+          renderError("render: " + (err?.message || err));
+        }
+      }
+
+      async function handle(msg) {
+        if (!msg || msg.__artifact === true) return; // ignore our own echoes
+        const t = msg.type;
+        if (t === "render") {
+          const { kind, code } = msg;
+          try {
+            if (kind === "svg") return renderSvg(code || "");
+            if (kind === "html") return renderHtml(code || "");
+            if (kind === "mermaid") return renderMermaid(code || "");
+            if (kind === "markdown") return renderMarkdown(code || "");
+            if (kind === "react") return renderReact(code || "");
+            renderError("unknown artifact kind: " + kind);
+          } catch (err) {
+            renderError(String(err?.stack || err));
+          }
+        }
+      }
+
+      window.addEventListener("message", (e) => handle(e.data));
+      window.addEventListener("error", (e) => post({ type: "error", message: String(e.message) }));
+      window.addEventListener("unhandledrejection", (e) => post({ type: "error", message: String(e.reason?.message || e.reason) }));
+
+      post({ type: "ready" });
+    </script>
+  </body>
+</html>
