@@ -36,7 +36,9 @@ export type ModelRole =
   /** Vision bbox finder called from `crop_region` / `show_source` during chat. */
   | "qa.locate"
   /** Dedicated artifact author — turns a spec from the orchestrator into real code. */
-  | "qa.artifact";
+  | "qa.artifact"
+  /** Flowchart-spec author — emits the small JSON schema consumed by the flowchart template. Much cheaper than full TSX authoring. */
+  | "qa.artifact.flowchart";
 
 const DEFAULTS: Record<ModelRole, string> = {
   "ingest.page": OPUS_MODEL,
@@ -45,6 +47,7 @@ const DEFAULTS: Record<ModelRole, string> = {
   "qa.orchestrator": SONNET_MODEL,
   "qa.locate": OPUS_MODEL,
   "qa.artifact": OPUS_MODEL,
+  "qa.artifact.flowchart": SONNET_MODEL,
 };
 
 function resolveTier(value: string): string | null {

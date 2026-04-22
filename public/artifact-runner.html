@@ -40,6 +40,486 @@
   <body>
     <div id="root"></div>
 
+    <!--
+      Shared React template for kind="flowchart". The agent emits a small JSON
+      payload; this template renders the interactive stepper + collapsible
+      "Show full flow" overview. Keeping the UI here (rather than re-authoring
+      it on every flowchart emission) is what makes the flowchart kind fast,
+      cheap, and visually consistent.
+    -->
+    <script id="flowchart-template-tsx" type="text/tsx-template">
+import React, { useMemo, useState } from "react";
+
+type Branch = { label: string; next: string; detail?: string };
+type NodeBase = { title: string; detail?: string; citation?: string; warning?: string };
+type FlowNode =
+  | ({ kind: "question" } & NodeBase & { branches: Branch[] })
+  | ({ kind: "action" } & NodeBase & { next: string })
+  | ({ kind: "terminal" } & NodeBase & { outcome?: string });
+type Spec = {
+  title: string;
+  subtitle?: string;
+  start: string;
+  nodes: Record<string, FlowNode>;
+  citations?: string[];
+};
+
+const POSITIVE_OUTCOMES = /^(fixed|resolved|done|ok|good|complete|success|working)/i;
+
+function classNames(...xs: (string | false | null | undefined)[]) {
+  return xs.filter(Boolean).join(" ");
+}
+
+function Citation({ text }: { text: string }) {
+  return (
+    <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10.5px] tracking-wide text-zinc-400">
+      {text}
+    </span>
+  );
+}
+
+function WarningCallout({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-[12.5px] leading-relaxed text-amber-100">
+      <span className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500/25 font-semibold text-amber-200">
+        !
+      </span>
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function Header({ spec }: { spec: Spec }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <div className="text-[18px] font-semibold leading-tight text-zinc-50">
+          {spec.title}
+        </div>
+        {spec.subtitle ? (
+          <div className="mt-1 text-[13px] leading-snug text-zinc-400">
+            {spec.subtitle}
+          </div>
+        ) : null}
+      </div>
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/[0.08] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-orange-300">
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-orange-400" />
+        interactive flow
+      </span>
+    </div>
+  );
+}
+
+function Breadcrumb({
+  path,
+  nodes,
+  onJump,
+  onReset,
+}: {
+  path: { nodeId: string; branchLabel: string }[];
+  nodes: Record<string, FlowNode>;
+  onJump: (idx: number) => void;
+  onReset: () => void;
+}) {
+  if (path.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5">
+      <span className="font-mono text-[9.5px] uppercase tracking-wider text-zinc-500">
+        path
+      </span>
+      {path.map((step, i) => {
+        const node = nodes[step.nodeId];
+        const short = (node?.title || step.nodeId).slice(0, 42);
+        return (
+          <button
+            key={i}
+            onClick={() => onJump(i)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-zinc-300 transition-colors hover:border-orange-500/40 hover:text-orange-200"
+            title={"Jump back to: " + short}
+          >
+            <span className="max-w-[160px] truncate">{short}</span>
+            <span className="text-zinc-600">·</span>
+            <span className="truncate font-medium text-zinc-400">{step.branchLabel}</span>
+          </button>
+        );
+      })}
+      <span className="text-zinc-600">→</span>
+      <span className="font-mono text-[10.5px] text-zinc-500">current</span>
+      <button
+        onClick={onReset}
+        className="ml-auto rounded-md px-2 py-0.5 text-[10.5px] font-medium text-zinc-400 transition-colors hover:text-orange-300"
+      >
+        Start over
+      </button>
+    </div>
+  );
+}
+
+function QuestionNode({
+  node,
+  onBranch,
+}: {
+  node: Extract<FlowNode, { kind: "question" }>;
+  onBranch: (label: string, nextId: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset]">
+      <div className="flex items-start gap-2">
+        <span className="mt-1 font-mono text-[10px] uppercase tracking-wider text-orange-400/90">
+          Question
+        </span>
+        {node.citation ? <Citation text={node.citation} /> : null}
+      </div>
+      <div className="mt-2 text-[17px] font-semibold leading-snug text-zinc-50">
+        {node.title}
+      </div>
+      {node.detail ? (
+        <div className="mt-2 text-[13.5px] leading-relaxed text-zinc-300">
+          {node.detail}
+        </div>
+      ) : null}
+      {node.warning ? (
+        <div className="mt-3">
+          <WarningCallout text={node.warning} />
+        </div>
+      ) : null}
+      <div className="mt-4 flex flex-col gap-2">
+        {node.branches.map((b, i) => (
+          <button
+            key={i}
+            onClick={() => onBranch(b.label, b.next)}
+            className="group flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.015] px-4 py-3 text-left transition-all hover:border-orange-500/50 hover:bg-orange-500/[0.04]"
+          >
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-medium text-zinc-100 group-hover:text-orange-100">
+                {b.label}
+              </div>
+              {b.detail ? (
+                <div className="mt-0.5 text-[12px] leading-snug text-zinc-400">
+                  {b.detail}
+                </div>
+              ) : null}
+            </div>
+            <span className="mt-0.5 shrink-0 text-[13px] text-zinc-500 transition-transform group-hover:translate-x-0.5 group-hover:text-orange-300">
+              →
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActionNode({
+  node,
+  onContinue,
+}: {
+  node: Extract<FlowNode, { kind: "action" }>;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <div className="flex items-start gap-2">
+        <span className="mt-1 font-mono text-[10px] uppercase tracking-wider text-sky-400/90">
+          Do this
+        </span>
+        {node.citation ? <Citation text={node.citation} /> : null}
+      </div>
+      <div className="mt-2 text-[16.5px] font-semibold leading-snug text-zinc-50">
+        {node.title}
+      </div>
+      {node.detail ? (
+        <div className="mt-2 text-[13.5px] leading-relaxed text-zinc-300">
+          {node.detail}
+        </div>
+      ) : null}
+      {node.warning ? (
+        <div className="mt-3">
+          <WarningCallout text={node.warning} />
+        </div>
+      ) : null}
+      <button
+        onClick={onContinue}
+        className="mt-4 inline-flex items-center gap-2 rounded-lg bg-orange-500/90 px-4 py-2 text-[13px] font-semibold text-zinc-900 transition-colors hover:bg-orange-400"
+      >
+        Continue <span>→</span>
+      </button>
+    </div>
+  );
+}
+
+function TerminalNode({
+  node,
+  onReset,
+}: {
+  node: Extract<FlowNode, { kind: "terminal" }>;
+  onReset: () => void;
+}) {
+  const positive = node.outcome ? POSITIVE_OUTCOMES.test(node.outcome) : false;
+  const tintBorder = positive ? "border-emerald-500/30" : "border-orange-500/30";
+  const tintBg = positive ? "bg-emerald-500/[0.05]" : "bg-orange-500/[0.04]";
+  const tintText = positive ? "text-emerald-300" : "text-orange-300";
+  const pillBg = positive ? "bg-emerald-500/20" : "bg-orange-500/20";
+  return (
+    <div className={classNames("rounded-2xl border p-5", tintBorder, tintBg)}>
+      <div className="flex items-start gap-2">
+        <span className={classNames("font-mono text-[10px] uppercase tracking-wider", tintText)}>
+          Resolution
+        </span>
+        {node.outcome ? (
+          <span className={classNames("rounded-full px-2 py-0.5 text-[10.5px] font-semibold", pillBg, tintText)}>
+            {node.outcome}
+          </span>
+        ) : null}
+        {node.citation ? <Citation text={node.citation} /> : null}
+      </div>
+      <div className="mt-2 text-[17px] font-semibold leading-snug text-zinc-50">
+        {node.title}
+      </div>
+      {node.detail ? (
+        <div className="mt-2 text-[13.5px] leading-relaxed text-zinc-300">
+          {node.detail}
+        </div>
+      ) : null}
+      {node.warning ? (
+        <div className="mt-3">
+          <WarningCallout text={node.warning} />
+        </div>
+      ) : null}
+      <button
+        onClick={onReset}
+        className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/[0.04] px-4 py-2 text-[13px] font-medium text-zinc-200 transition-colors hover:border-orange-500/40 hover:text-orange-200"
+      >
+        ↺ Start over
+      </button>
+    </div>
+  );
+}
+
+function OverviewLine({
+  id,
+  node,
+  depth,
+  isCurrent,
+  isVisited,
+  branchLabel,
+  onGoTo,
+}: {
+  id: string;
+  node: FlowNode;
+  depth: number;
+  isCurrent: boolean;
+  isVisited: boolean;
+  branchLabel?: string;
+  onGoTo: (id: string) => void;
+}) {
+  const kindColor =
+    node.kind === "question" ? "text-orange-300"
+    : node.kind === "action"   ? "text-sky-300"
+    :                            "text-emerald-300";
+  return (
+    <div
+      className={classNames(
+        "flex items-start gap-2 rounded-lg px-2 py-1 text-[12.5px] leading-snug transition-colors",
+        isCurrent ? "bg-orange-500/[0.12] ring-1 ring-orange-500/40" : "hover:bg-white/[0.03]",
+        !isCurrent && isVisited && "opacity-55",
+      )}
+      style={{ paddingLeft: 8 + depth * 16 }}
+    >
+      <span className={classNames("mt-[3px] font-mono text-[9.5px] uppercase tracking-wider", kindColor)}>
+        {node.kind === "question" ? "?" : node.kind === "action" ? "▸" : "●"}
+      </span>
+      <div className="min-w-0 flex-1">
+        {branchLabel ? (
+          <div className="font-mono text-[9.5px] uppercase tracking-wide text-zinc-500">
+            via {branchLabel}
+          </div>
+        ) : null}
+        <button
+          onClick={() => onGoTo(id)}
+          className="text-left text-zinc-200 transition-colors hover:text-orange-200"
+          title={"Jump to this node"}
+        >
+          {node.title}
+        </button>
+        {node.citation ? (
+          <span className="ml-1.5 font-mono text-[9.5px] text-zinc-500">{node.citation}</span>
+        ) : null}
+        {isCurrent ? (
+          <span className="ml-2 rounded-full bg-orange-500/25 px-1.5 py-[1px] font-mono text-[9px] uppercase tracking-wider text-orange-200">
+            you are here
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function FullFlowOverview({
+  spec,
+  currentId,
+  visitedIds,
+  onGoTo,
+}: {
+  spec: Spec;
+  currentId: string;
+  visitedIds: Set<string>;
+  onGoTo: (id: string) => void;
+}) {
+  // Depth-first render. Each node is rendered at most once; repeat visits are
+  // shown as a compact "→ id" reference so cycles and converging branches
+  // don't blow up the tree.
+  const lines: React.ReactNode[] = [];
+  const rendered = new Set<string>();
+
+  function walk(id: string, depth: number, branchLabel?: string) {
+    const node = spec.nodes[id];
+    if (!node) {
+      lines.push(
+        <div key={id + "-" + depth + "-missing"} className="px-2 py-1 text-[12px] text-red-300" style={{ paddingLeft: 8 + depth * 16 }}>
+          missing node: {id}
+        </div>,
+      );
+      return;
+    }
+    if (rendered.has(id)) {
+      lines.push(
+        <div
+          key={id + "-" + depth + "-ref"}
+          className="flex items-center gap-2 rounded-lg px-2 py-1 text-[11.5px] text-zinc-500"
+          style={{ paddingLeft: 8 + depth * 16 }}
+        >
+          {branchLabel ? (
+            <span className="font-mono text-[9.5px] uppercase tracking-wide text-zinc-600">
+              via {branchLabel}
+            </span>
+          ) : null}
+          <span>↺ back to "{node.title.slice(0, 40)}"</span>
+        </div>,
+      );
+      return;
+    }
+    rendered.add(id);
+    lines.push(
+      <OverviewLine
+        key={id + "-" + depth}
+        id={id}
+        node={node}
+        depth={depth}
+        isCurrent={id === currentId}
+        isVisited={visitedIds.has(id)}
+        branchLabel={branchLabel}
+        onGoTo={onGoTo}
+      />,
+    );
+    if (node.kind === "question") {
+      for (const b of node.branches) walk(b.next, depth + 1, b.label);
+    } else if (node.kind === "action") {
+      walk(node.next, depth + 1);
+    }
+  }
+
+  walk(spec.start, 0);
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-2">
+      <div className="flex flex-col gap-0.5">{lines}</div>
+    </div>
+  );
+}
+
+function Citations({ citations }: { citations: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-t border-white/5 pt-3 text-[11px] text-zinc-500">
+      <span className="font-mono text-[9.5px] uppercase tracking-wider">sources</span>
+      {citations.map((c, i) => (
+        <Citation key={i} text={c} />
+      ))}
+    </div>
+  );
+}
+
+export default function FlowchartTemplate({ spec }: { spec: Spec }) {
+  const [currentId, setCurrentId] = useState(spec.start);
+  const [path, setPath] = useState<{ nodeId: string; branchLabel: string }[]>([]);
+  const [showFull, setShowFull] = useState(false);
+
+  const currentNode = spec.nodes[currentId];
+  const visitedIds = useMemo(() => new Set(path.map((p) => p.nodeId)), [path]);
+
+  function goTo(branchLabel: string, nextId: string) {
+    setPath((p) => [...p, { nodeId: currentId, branchLabel }]);
+    setCurrentId(nextId);
+  }
+
+  function jumpBack(idx: number) {
+    const target = path[idx];
+    if (!target) return;
+    setPath(path.slice(0, idx));
+    setCurrentId(target.nodeId);
+  }
+
+  function reset() {
+    setPath([]);
+    setCurrentId(spec.start);
+  }
+
+  function jumpFromOverview(id: string) {
+    // Jumping from the overview clears breadcrumb (we can't reconstruct the
+    // path that led there), but keeps the user oriented.
+    setPath([]);
+    setCurrentId(id);
+  }
+
+  if (!currentNode) {
+    return (
+      <div className="artifact-err">
+        flowchart error: node "{currentId}" not found in spec
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col gap-4 text-zinc-200">
+      <Header spec={spec} />
+      <Breadcrumb path={path} nodes={spec.nodes} onJump={jumpBack} onReset={reset} />
+      {currentNode.kind === "question" ? (
+        <QuestionNode node={currentNode} onBranch={goTo} />
+      ) : currentNode.kind === "action" ? (
+        <ActionNode
+          node={currentNode}
+          onContinue={() => goTo("(continue)", currentNode.next)}
+        />
+      ) : (
+        <TerminalNode node={currentNode} onReset={reset} />
+      )}
+      <button
+        onClick={() => setShowFull((v) => !v)}
+        className="inline-flex items-center justify-center gap-2 self-center rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-[11.5px] font-medium text-zinc-400 transition-colors hover:border-orange-500/30 hover:text-orange-200"
+        aria-expanded={showFull}
+      >
+        <span>{showFull ? "▾" : "▸"}</span>
+        {showFull ? "Hide full flow" : "Show full flow"}
+        <span className="font-mono text-[10px] text-zinc-500">
+          ({Object.keys(spec.nodes).length} nodes)
+        </span>
+      </button>
+      {showFull ? (
+        <FullFlowOverview
+          spec={spec}
+          currentId={currentId}
+          visitedIds={visitedIds}
+          onGoTo={jumpFromOverview}
+        />
+      ) : null}
+      {spec.citations && spec.citations.length > 0 ? (
+        <Citations citations={spec.citations} />
+      ) : null}
+    </div>
+  );
+}
+    </script>
+
     <script type="importmap">
       {
         "imports": {
@@ -226,6 +706,116 @@
         }
       }
 
+      // Lazy-loads the shared flowchart template. Transforms the embedded TSX
+      // once per iframe lifetime; subsequent renders reuse the same module.
+      let flowchartTemplatePromise = null;
+      function getFlowchartTemplate() {
+        if (flowchartTemplatePromise) return flowchartTemplatePromise;
+        flowchartTemplatePromise = (async () => {
+          const el = document.getElementById("flowchart-template-tsx");
+          if (!el) throw new Error("flowchart template script tag not found");
+          const tsx = el.textContent || "";
+          const out = transform(tsx, {
+            transforms: ["typescript", "jsx"],
+            jsxRuntime: "classic",
+            production: true,
+          }).code;
+          const blob = new Blob([out], { type: "text/javascript" });
+          const url = URL.createObjectURL(blob);
+          try {
+            const mod = await import(url);
+            if (typeof mod.default !== "function") {
+              throw new Error("flowchart template has no default export");
+            }
+            return mod.default;
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        })();
+        return flowchartTemplatePromise;
+      }
+
+      // Lightweight defence-in-depth validation — the backend already validates
+      // against the zod schema, but the iframe may receive stale or malformed
+      // payloads (manual edits, standalone downloads). Surface a clear error
+      // rather than letting the template crash inside render.
+      function validateFlowchartSpec(spec) {
+        if (!spec || typeof spec !== "object") return "spec must be an object";
+        if (typeof spec.title !== "string" || !spec.title) return "missing title";
+        if (typeof spec.start !== "string" || !spec.start) return "missing start";
+        if (!spec.nodes || typeof spec.nodes !== "object") return "missing nodes";
+        const ids = new Set(Object.keys(spec.nodes));
+        if (!ids.has(spec.start)) return 'start "' + spec.start + '" not in nodes';
+        for (const [id, node] of Object.entries(spec.nodes)) {
+          if (!node || typeof node !== "object") return 'node "' + id + '" is not an object';
+          const kind = node.kind;
+          if (kind !== "question" && kind !== "action" && kind !== "terminal") {
+            return 'node "' + id + '" has invalid kind: ' + kind;
+          }
+          if (typeof node.title !== "string" || !node.title) return 'node "' + id + '" missing title';
+          if (kind === "question") {
+            if (!Array.isArray(node.branches) || node.branches.length < 2) {
+              return 'node "' + id + '" needs >= 2 branches';
+            }
+            for (const [i, b] of node.branches.entries()) {
+              if (!b || typeof b.label !== "string" || typeof b.next !== "string") {
+                return 'node "' + id + '" branch[' + i + '] malformed';
+              }
+              if (!ids.has(b.next)) return 'node "' + id + '" branch[' + i + '] -> "' + b.next + '" not defined';
+            }
+          } else if (kind === "action") {
+            if (typeof node.next !== "string") return 'node "' + id + '" missing next';
+            if (!ids.has(node.next)) return 'node "' + id + '" next -> "' + node.next + '" not defined';
+          }
+        }
+        return null;
+      }
+
+      async function renderFlowchart(code) {
+        unmount();
+        let spec;
+        try {
+          spec = JSON.parse(code);
+        } catch (err) {
+          renderError("flowchart: invalid JSON — " + (err?.message || err));
+          return;
+        }
+        const invalid = validateFlowchartSpec(spec);
+        if (invalid) {
+          renderError("flowchart: " + invalid);
+          return;
+        }
+        let Template;
+        try {
+          Template = await getFlowchartTemplate();
+        } catch (err) {
+          renderError("flowchart template load failed: " + (err?.message || err));
+          return;
+        }
+
+        class Boundary extends React.Component {
+          constructor(p) { super(p); this.state = { err: null }; }
+          static getDerivedStateFromError(err) { return { err }; }
+          componentDidCatch(err) { post({ type: "error", message: String(err?.stack || err) }); }
+          render() {
+            if (this.state.err) {
+              return React.createElement("pre", { className: "artifact-err" }, String(this.state.err.stack || this.state.err));
+            }
+            return this.props.children;
+          }
+        }
+
+        try {
+          currentRoot = createRoot(rootEl);
+          currentRoot.render(
+            React.createElement(Boundary, null, React.createElement(Template, { spec })),
+          );
+          post({ type: "rendered", kind: "flowchart" });
+        } catch (err) {
+          renderError("render: " + (err?.message || err));
+        }
+      }
+
       async function handle(msg) {
         if (!msg || msg.__artifact === true) return; // ignore our own echoes
         const t = msg.type;
@@ -237,6 +827,7 @@
             if (kind === "mermaid") return renderMermaid(code || "");
             if (kind === "markdown") return renderMarkdown(code || "");
             if (kind === "react") return renderReact(code || "");
+            if (kind === "flowchart") return renderFlowchart(code || "");
             renderError("unknown artifact kind: " + kind);
           } catch (err) {
             renderError(String(err?.stack || err));

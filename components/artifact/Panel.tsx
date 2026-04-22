@@ -37,6 +37,7 @@ const KIND_GLYPH: Record<string, React.ComponentType<{ className?: string }>> = 
   svg: Shapes,
   mermaid: Workflow,
   markdown: FileText,
+  flowchart: Workflow,
 };
 
 const KIND_TINT: Record<string, { ring: string; text: string; bg: string }> = {
@@ -45,6 +46,7 @@ const KIND_TINT: Record<string, { ring: string; text: string; bg: string }> = {
   svg: { ring: "ring-emerald-500/30", text: "text-emerald-200", bg: "bg-emerald-500/10" },
   mermaid: { ring: "ring-violet-500/30", text: "text-violet-200", bg: "bg-violet-500/10" },
   markdown: { ring: "ring-zinc-500/30", text: "text-zinc-200", bg: "bg-zinc-500/10" },
+  flowchart: { ring: "ring-orange-500/30", text: "text-orange-200", bg: "bg-orange-500/10" },
 };
 
 export function ArtifactPanel({
@@ -495,6 +497,7 @@ function buildStandaloneHtml(v: ArtifactVersion): string {
       mermaid.initialize({ startOnLoad: false, theme: "dark" });
 
       function err(m) { root.innerHTML = '<pre class="artifact-err">' + String(m) + '</pre>'; }
+      function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
       try {
         if (kind === "svg") root.innerHTML = code;
         else if (kind === "html") root.innerHTML = code;
@@ -502,6 +505,36 @@ function buildStandaloneHtml(v: ArtifactVersion): string {
         else if (kind === "mermaid") {
           const { svg } = await mermaid.render("m", code);
           root.innerHTML = svg;
+        } else if (kind === "flowchart") {
+          // Downloads render a static tree view of the flow (no interactivity).
+          // The in-app panel is the place to walk through it step-by-step.
+          const spec = JSON.parse(code);
+          const glyph = (k) => k === 'question' ? '?' : k === 'action' ? '&#9656;' : '&#9679;';
+          const tint = (k) => k === 'question' ? '#fbbf24' : k === 'action' ? '#38bdf8' : '#34d399';
+          const rendered = new Set();
+          const lines = [];
+          function walk(id, depth, via) {
+            const node = spec.nodes[id];
+            const pad = depth * 20 + 8;
+            if (!node) { lines.push('<div style="padding-left:' + pad + 'px;color:#fca5a5;">missing: ' + esc(id) + '</div>'); return; }
+            if (rendered.has(id)) {
+              lines.push('<div style="padding-left:' + pad + 'px;color:#71717a;font-size:12px;">' + (via ? 'via <em>' + esc(via) + '</em> ' : '') + '&#8617; back to "' + esc(node.title.slice(0,40)) + '"</div>');
+              return;
+            }
+            rendered.add(id);
+            const cite = node.citation ? ' <span style="font-family:ui-monospace,monospace;color:#a1a1aa;font-size:11px;">' + esc(node.citation) + '</span>' : '';
+            const viaLabel = via ? '<div style="font-family:ui-monospace,monospace;font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">via ' + esc(via) + '</div>' : '';
+            const warn = node.warning ? '<div style="margin-top:6px;padding:6px 10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;color:#fde68a;font-size:12px;">&#9888; ' + esc(node.warning) + '</div>' : '';
+            const detail = node.detail ? '<div style="color:#d4d4d8;font-size:13px;margin-top:4px;">' + esc(node.detail) + '</div>' : '';
+            const outcome = node.outcome ? ' <span style="background:rgba(251,146,60,0.2);color:#fdba74;padding:1px 8px;border-radius:999px;font-size:10.5px;font-weight:600;">' + esc(node.outcome) + '</span>' : '';
+            lines.push('<div style="padding:8px 12px 8px ' + pad + 'px;border-left:2px solid rgba(255,255,255,0.08);margin-bottom:2px;">' + viaLabel + '<div style="display:flex;align-items:baseline;gap:8px;"><span style="color:' + tint(node.kind) + ';font-weight:600;">' + glyph(node.kind) + '</span><span style="font-weight:600;color:#f4f4f5;">' + esc(node.title) + '</span>' + cite + outcome + '</div>' + detail + warn + '</div>');
+            if (node.kind === 'question') for (const b of node.branches) walk(b.next, depth + 1, b.label);
+            else if (node.kind === 'action') walk(node.next, depth + 1);
+          }
+          walk(spec.start, 0);
+          const header = '<div style="margin-bottom:16px;"><div style="font-size:20px;font-weight:700;color:#fafafa;">' + esc(spec.title) + '</div>' + (spec.subtitle ? '<div style="color:#a1a1aa;font-size:13px;margin-top:4px;">' + esc(spec.subtitle) + '</div>' : '') + '<div style="font-family:ui-monospace,monospace;font-size:10.5px;color:#71717a;margin-top:6px;text-transform:uppercase;letter-spacing:0.05em;">Static flow reference &middot; view in app for interactive stepper</div></div>';
+          const sources = spec.citations && spec.citations.length ? '<div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#71717a;">Sources: ' + spec.citations.map(esc).join(', ') + '</div>' : '';
+          root.innerHTML = header + lines.join('') + sources;
         } else if (kind === "react") {
           const pre = "import React from 'react';\\nimport { useState, useEffect, useRef, useMemo, useCallback, useReducer, useLayoutEffect, useContext, createContext, Fragment } from 'react';\\n";
           const cleaned = code.replace(/^[ \\t]*import\\s+(?:[\\w*{}\\s,]+\\s+from\\s+)?['\\"]react['\\"][\\s;]*$/gm, "");

@@ -305,9 +305,10 @@ You do NOT write the artifact code yourself. You write a detailed SPEC, and a de
 
 Kinds (pick the simplest that communicates the idea):
 - "svg": inline SVG. Best for schematics, socket maps, labelled static diagrams.
-- "mermaid": Mermaid flowchart/state-diagram. Best for decision trees, troubleshooting flows.
+- "flowchart": DEFAULT for any decision tree / troubleshooting / diagnostic flow. You emit a small JSON spec (questions, branches, terminals, citations) — a shared React template renders it as an interactive stepper with a collapsible "show full flow" overview. Much faster and cheaper than authoring the stepper TSX from scratch, and the look is consistent across flows. See the SPEC section below for the JSON shape.
+- "mermaid": static Mermaid diagram. Use sparingly — only for tiny at-a-glance reference diagrams (< 5 nodes) where the user just needs to see the shape, not navigate. Never use for real decision trees; use "flowchart" for those.
 - "html": standalone sandboxed HTML. Use only when React is overkill (trivial static layouts).
-- "react": React/TSX in a sandboxed iframe. Hooks + recharts + lucide-react + Tailwind preloaded. Best for calculators, configurators, interactive steppers, charts.
+- "react": React/TSX in a sandboxed iframe. Hooks + recharts + lucide-react + Tailwind preloaded. Best for calculators, configurators, charts. ESCAPE HATCH for decision trees: use "react" only if the flow genuinely needs mixed interactivity the "flowchart" template cannot express (e.g. a node that embeds a live calculator, a chart, or non-tree navigation with state that branches and merges).
 - "markdown": long-form markdown. Use sparingly — prefer react for anything interactive.
 
 WHAT A GREAT SPEC LOOKS LIKE
@@ -321,13 +322,22 @@ Write the spec as if briefing a skilled designer who has never seen the manual. 
 
 A weak spec says "a duty cycle calculator". A strong spec lists the exact amperage range, the exact duty-cycle formula, the exact page numbers, and what the output should read.
 
+FLOWCHART SPECS (kind="flowchart")
+The flowchart kind is schema-driven — the artifact author emits JSON that a shared React template renders. Your spec should describe the flow in a form the author can translate node-by-node:
+- **Start question**: what the user is asked first (exact wording from the manual if it exists), plus the page citation.
+- **Nodes**: every decision point, action, and terminal outcome. For each one include: the question or imperative title, the manual page it came from, any safety warning to surface, and the branches (each with a concrete condition label — "Arc sputtering" / "Bead is narrow and ropey" — not bare "Yes/No" unless the question is literally binary).
+- **Branches resolve**: make it clear which downstream node each branch leads to.
+- **Terminals**: every path must end somewhere — a fix, a part replacement, a "call support", a "problem resolved". State the resolution wording and citation.
+- **Overall citations**: the manual pages that back the flow, for the footer.
+A weak flowchart spec says "a troubleshooting flow for porosity". A strong one lists ~5–10 nodes by name (check_gas → fix_gas / check_wire / …), each with its exact question, branches, and page reference.
+
 VERSIONING
 If you are revising an existing artifact (user asked you to tweak it, add a feature, fix a visual bug), pass the SAME \`group_id\` — the UI stacks the new version as v2/v3 under the existing card. Use a fresh stable slug ("duty-cycle-calc", "porosity-tree") for brand-new artifacts.
 
 AUTO-FIX FLOW
 If a prior artifact failed to render (you'll receive an error message), call emit_artifact AGAIN with the same group_id and pass the error verbatim as \`error_context\`. The author will diagnose and fix. You don't need to guess the syntax fix — just relay the error and restate the spec.`,
         {
-          kind: z.enum(["react", "html", "svg", "mermaid", "markdown"]),
+          kind: z.enum(["react", "html", "svg", "mermaid", "markdown", "flowchart"]),
           title: z.string().describe("Short user-facing title shown on the artifact card."),
           spec: z
             .string()

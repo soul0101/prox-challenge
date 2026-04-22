@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:3000**. The demo corpus is pre-ingested and committed, so the first question works in under a minute.
+Open **[http://localhost:3000](http://localhost:3000)**. The demo corpus is pre-ingested and committed, so the first question works in under a minute.
 
 **Auth.** The Claude Agent SDK inherits auth from your local `claude` CLI — if you're signed in via Claude Pro/Team, no key is needed. Otherwise set `ANTHROPIC_API_KEY` in `.env`, or paste a key into the Settings dialog on first load.
 
@@ -49,15 +49,17 @@ This is the opposite of the "paste the whole manual into context and ask" approa
 - **Determinism.** Same question, same ingested corpus, same answer shape. Tools are pure functions over indexed data. The agent isn't improvising over a blurry mental map of the PDF; it's operating over a structured knowledge base.
 - **Model specialization per role.** One model doesn't fit every task:
 
-| Role | Default | Why |
-|------|---------|-----|
-| Ingest — per-page vision | Opus | One-shot, quality-critical. Wrong metadata poisons every future query. |
-| Ingest — document consolidation | Opus | Synthesize outline + suggested prompts; precision matters. |
-| Chat orchestrator | Sonnet | Latency-sensitive. Users are waiting on every turn. |
-| Vision crop / region locate | Opus | Bounding-box precision on dense diagrams. |
-| Artifact code generation | Opus | Quality > latency for rendered output. |
 
-Each role is individually overridable (`MODEL_ROLE_*` env vars, or per-request from the Settings dialog). The user pays for precision only where the task demands it.
+| Role                            | Default | Why                                                                    |
+| ------------------------------- | ------- | ---------------------------------------------------------------------- |
+| Ingest — per-page vision        | Opus    | One-shot, quality-critical. Wrong metadata poisons every future query. |
+| Ingest — document consolidation | Opus    | Synthesize outline + suggested prompts; precision matters.             |
+| Chat orchestrator               | Sonnet  | Latency-sensitive. Users are waiting on every turn.                    |
+| Vision crop / region locate     | Opus    | Bounding-box precision on dense diagrams.                              |
+| Artifact code generation        | Opus    | Quality > latency for rendered output.                                 |
+
+
+Each role is individually overridable (`MODEL_ROLE_`* env vars, or per-request from the Settings dialog). The user pays for precision only where the task demands it.
 
 ## Why these specific technical choices
 
@@ -68,16 +70,18 @@ Retrieval is BM25 via minisearch. No vector DB, no embeddings, no reranker. This
 **1. The index doesn't just hold OCR — it holds a vision-extracted vocabulary layer.**
 Every page goes through a one-time Opus vision pass that emits (alongside a summary) 6–15 operator-facing **keywords** — the jargon, part names, error codes, and process names an operator would actually search for. Figure captions and table titles get the same treatment. Those land in separate index fields with their own boosts:
 
-| Field | Boost | What's in it |
-|---|---|---|
-| `table_titles` | 2.5× | Titles of duty-cycle charts, selection charts, torque tables |
-| `keywords` | 2.2× | Vision-extracted operator jargon per page |
-| `summary` | 2.0× | 2–4 sentence page summary |
-| `figure_text` | 1.8× | Figure captions + per-figure keywords |
-| `figure_kinds` | 1.5× | `schematic`, `photo`, `chart`, `visual`/`diagram` |
-| `table_text` | 1.4× | Table columns + cells |
-| `section_hint` | 1.1× | Best-guess chapter/section name |
-| `text` | 1.0× | Raw OCR text (base) |
+
+| Field          | Boost | What's in it                                                 |
+| -------------- | ----- | ------------------------------------------------------------ |
+| `table_titles` | 2.5×  | Titles of duty-cycle charts, selection charts, torque tables |
+| `keywords`     | 2.2×  | Vision-extracted operator jargon per page                    |
+| `summary`      | 2.0×  | 2–4 sentence page summary                                    |
+| `figure_text`  | 1.8×  | Figure captions + per-figure keywords                        |
+| `figure_kinds` | 1.5×  | `schematic`, `photo`, `chart`, `visual`/`diagram`            |
+| `table_text`   | 1.4×  | Table columns + cells                                        |
+| `section_hint` | 1.1×  | Best-guess chapter/section name                              |
+| `text`         | 1.0×  | Raw OCR text (base)                                          |
+
 
 This is the part most BM25 comparisons miss. "Plain BM25 on raw OCR" underperforms for a reason — it's only indexing what the PDF happens to have as selectable text, and on a diagram-heavy manual that's half the document. Here the LLM has already read each page as an image and tagged it with the search vocabulary an operator would use, so by the time BM25 runs, the index has already absorbed a big chunk of what an embedding model would otherwise have to infer at query time.
 
@@ -170,7 +174,7 @@ Threads and a small per-user profile persist in `localStorage` — no backend, n
 
 Every fact is visible and editable in the UI. The assistant never knows anything about you that you can't inspect, overwrite, or clear.
 
-<p align="center"><img src="docs/memory.png" alt="Memory panel" width="640" /></p>
+![Memory panel](docs/memory.png)
 
 ## Using it with your own manuals
 

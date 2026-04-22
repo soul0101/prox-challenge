@@ -21,8 +21,9 @@ const KIND_LABEL: Record<string, string> = {
   react: "Interactive",
   html: "HTML",
   svg: "SVG diagram",
-  mermaid: "Flowchart",
+  mermaid: "Diagram",
   markdown: "Markdown",
+  flowchart: "Interactive flow",
 };
 
 const KIND_ACCENT: Record<
@@ -51,6 +52,12 @@ const KIND_ACCENT: Record<
     grad: "from-violet-500/25 via-fuchsia-500/10 to-transparent",
     text: "text-violet-200",
     ring: "ring-violet-500/30",
+    Icon: Workflow,
+  },
+  flowchart: {
+    grad: "from-orange-500/25 via-amber-500/10 to-transparent",
+    text: "text-orange-200",
+    ring: "ring-orange-500/30",
     Icon: Workflow,
   },
   markdown: {
