@@ -17,6 +17,30 @@ export interface AgentSettings {
   modelTier?: string;
   /** Override the artifact-author model tier for this call. */
   artifactModelTier?: string;
+  /** Stable facts the client wants baked into the system prompt. */
+  memory?: string[];
+}
+
+/**
+ * Upper bound on verbatim prior turns. Older turns get elided into a short
+ * marker line so the prompt length stays predictable regardless of how long
+ * the conversation gets. The persistent user-memory block is a separate
+ * signal and handles long-range recall.
+ */
+const WINDOW_TURNS = 16;
+
+function buildPriorContext(history: ChatTurn[]): string {
+  if (history.length <= 1) return "";
+  const prior = history.slice(0, -1);
+  const window = prior.slice(-WINDOW_TURNS);
+  const dropped = prior.length - window.length;
+  const lines = window.map(
+    (h) => `[${h.role.toUpperCase()}] ${h.content}`,
+  );
+  if (dropped > 0) {
+    lines.unshift(`[… ${dropped} earlier message${dropped === 1 ? "" : "s"} elided …]`);
+  }
+  return lines.join("\n\n");
 }
 
 /**
@@ -57,16 +81,10 @@ export async function* runAgent(args: {
     wakeup();
   });
 
-  // Flatten history into a single prompt string. Agent SDK's streaming-input
-  // mode is richer but overkill here — we feed prior turns as context.
-  const priorContext =
-    history.length > 1
-      ? history
-          .slice(0, -1)
-          .map((h) => `[${h.role.toUpperCase()}] ${h.content}`)
-          .join("\n\n")
-      : "";
-
+  // Flatten history into a single prompt string with a sliding window so very
+  // long conversations can't blow the context budget. Long-range recall is
+  // provided separately via the user-memory block in the system prompt.
+  const priorContext = buildPriorContext(history);
   const prompt = priorContext
     ? `Conversation so far:\n${priorContext}\n\n[USER just said] ${last.content}`
     : last.content;
@@ -127,7 +145,7 @@ export async function* runAgent(args: {
         prompt,
         options: {
           model: overrideModel || modelFor("qa.orchestrator"),
-          systemPrompt: buildSystemPrompt(manifest),
+          systemPrompt: buildSystemPrompt(manifest, { memory: settings?.memory }),
           mcpServers: { manual: mcp },
           allowedTools: allowedToolNames(),
           // Disable all built-in tools: we have our own curated set.

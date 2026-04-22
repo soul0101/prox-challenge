@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     apiKey?: string;
     model?: string;
     artifactModel?: string;
+    memory?: unknown;
   };
   try {
     body = await req.json();
@@ -32,10 +33,19 @@ export async function POST(req: NextRequest) {
   const history = Array.isArray(body.history) ? body.history : [];
   if (history.length === 0) return new Response("empty history", { status: 400 });
 
+  const memory = Array.isArray(body.memory)
+    ? body.memory
+        .filter((f): f is string => typeof f === "string")
+        .map((f) => f.trim())
+        .filter((f) => f.length > 0)
+        .slice(0, 40)
+    : undefined;
+
   const settings: AgentSettings = {
     apiKey: typeof body.apiKey === "string" && body.apiKey ? body.apiKey : undefined,
     modelTier: pickTier(body.model),
     artifactModelTier: pickTier(body.artifactModel),
+    memory,
   };
 
   const abort = new AbortController();

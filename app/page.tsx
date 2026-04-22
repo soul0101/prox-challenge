@@ -1,26 +1,36 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChatPanel, type ChatPanelHandle } from "@/components/chat/ChatPanel";
 import { ArtifactPanel } from "@/components/artifact/Panel";
 import { SourceViewer } from "@/components/source/Viewer";
 import { LibraryDrawer } from "@/components/library/Drawer";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
+import { ThreadSidebar } from "@/components/threads/ThreadSidebar";
+import { MemoryDialog, MemoryToast } from "@/components/memory/MemoryDialog";
 import { hasOnboarded, markOnboarded, useSettings } from "@/lib/client/settings";
+import {
+  deriveTitle,
+  fromChatMessage,
+  toChatMessage,
+  useThreads,
+} from "@/lib/client/threads";
+import { factsAsLines, useUserMemory } from "@/lib/client/memory";
 import { AppShell } from "@/components/shell/AppShell";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { FileText, Sparkles } from "lucide-react";
 import type { Manifest } from "@/lib/kb/types";
-import type { ArtifactAttachment, SourceAttachment } from "@/lib/client/chat-types";
+import type {
+  ArtifactAttachment,
+  ChatMessage,
+  SourceAttachment,
+} from "@/lib/client/chat-types";
 import { ease } from "@/lib/ui/motion";
 import { cn } from "@/lib/utils";
 
 export default function Home() {
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [artifactsByGroup, setArtifactsByGroup] = useState<
-    Map<string, ArtifactAttachment>
-  >(() => new Map());
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [activeVersion, setActiveVersion] = useState<number | null>(null);
   const [sourceDoc, setSourceDoc] = useState<string | null>(null);
@@ -31,8 +41,62 @@ export default function Home() {
   const [sourceOpen, setSourceOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [threadsOpen, setThreadsOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [recentAutoFacts, setRecentAutoFacts] = useState<string[]>([]);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
   const [settings, updateSettings, resetSettings] = useSettings();
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+  const [threadsState, threadOps, activeThread] = useThreads();
+  const [memory, memoryOps] = useUserMemory();
+  const memoryLines = useMemo(() => factsAsLines(memory), [memory]);
+
+  // Guarantee there is always an active thread once the manifest is loaded,
+  // so a first-time user can start chatting without clicking "new".
+  useEffect(() => {
+    if (!manifest) return;
+    if (activeThread) return;
+    if (threadsState.threads.length === 0) {
+      threadOps.create();
+    } else {
+      threadOps.setActive(threadsState.threads[0].id);
+    }
+  }, [manifest, activeThread, threadsState.threads, threadOps]);
+
+  const artifactsByGroup = useMemo<Map<string, ArtifactAttachment>>(() => {
+    const src = activeThread?.artifacts ?? {};
+    return new Map(Object.entries(src));
+  }, [activeThread?.artifacts]);
+
+  // When the active thread changes, clear the right-panel view state so we
+  // don't keep pointing at an artifact that belongs to the previous thread.
+  useEffect(() => {
+    setActiveGroupId(null);
+    setActiveVersion(null);
+    setSourceOpen(false);
+    setSourceDoc(null);
+    setSourcePage(null);
+    setSourceBbox(null);
+  }, [activeThread?.id]);
+
+  // Lazy ref for callbacks that run outside render (artifact events, turn
+  // completion). Within render, use `activeThread` directly.
+  const activeThreadRef = useRef(activeThread);
+  useEffect(() => {
+    activeThreadRef.current = activeThread;
+  });
+
+  // Only re-hydrate when the thread CHANGES (new id). We deliberately ignore
+  // in-place message mutations so ChatPanel's live state isn't clobbered
+  // mid-turn.
+  const initialMessages = useMemo<ChatMessage[]>(
+    () => (activeThread ? activeThread.messages.map(toChatMessage) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeThread?.id],
+  );
 
   // First-visit: auto-open settings so the user configures the API key and
   // models before their first request. We flip the onboarded flag the moment
@@ -120,54 +184,108 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
     ) => {
       const groupId = e.group_id || e.id;
       const ts = Date.now();
-      setArtifactsByGroup((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(groupId);
-        if (existing) {
-          const version = existing.versions.length + 1;
-          const updated: ArtifactAttachment = {
-            ...existing,
-            current_version: version,
-            versions: [
-              ...existing.versions,
-              {
-                id: e.id,
-                kind: e.kind,
-                title: e.title,
-                code: e.code,
-                version,
-                note: e.version_note,
-                ts,
-              },
-            ],
-          };
-          next.set(groupId, updated);
-        } else {
-          next.set(groupId, {
-            group_id: groupId,
-            current_version: 1,
-            versions: [
-              {
-                id: e.id,
-                kind: e.kind,
-                title: e.title,
-                code: e.code,
-                version: 1,
-                note: e.version_note,
-                ts,
-              },
-            ],
-          });
-        }
-        return next;
+      const current = activeThreadRef.current;
+      if (!current) return;
+      const existing = current.artifacts[groupId];
+      let updated: ArtifactAttachment;
+      if (existing) {
+        const version = existing.versions.length + 1;
+        updated = {
+          ...existing,
+          current_version: version,
+          versions: [
+            ...existing.versions,
+            {
+              id: e.id,
+              kind: e.kind,
+              title: e.title,
+              code: e.code,
+              version,
+              note: e.version_note,
+              ts,
+            },
+          ],
+        };
+      } else {
+        updated = {
+          group_id: groupId,
+          current_version: 1,
+          versions: [
+            {
+              id: e.id,
+              kind: e.kind,
+              title: e.title,
+              code: e.code,
+              version: 1,
+              note: e.version_note,
+              ts,
+            },
+          ],
+        };
+      }
+      threadOps.updateActive({
+        artifacts: { ...current.artifacts, [groupId]: updated },
       });
-      // Auto-open the latest version.
       setActiveGroupId(groupId);
       setActiveVersion(null);
       setRightPreference("artifact");
       callback?.(groupId);
     },
-    [],
+    [threadOps],
+  );
+
+  const onTurnComplete = useCallback(
+    ({
+      messages,
+      lastUser,
+      lastAssistant,
+    }: {
+      messages: ChatMessage[];
+      lastUser: string;
+      lastAssistant: string;
+    }) => {
+      const current = activeThreadRef.current;
+      if (!current) return;
+
+      const stored = messages.map(fromChatMessage);
+      const titlePatch =
+        current.title === "New chat" && stored.length > 0
+          ? { title: deriveTitle(stored) }
+          : {};
+      threadOps.updateActive({ messages: stored, ...titlePatch });
+
+      if (!lastUser.trim() || !lastAssistant.trim()) return;
+
+      const existing = memoryLines;
+      const apiKey = settingsRef.current.apiKey || undefined;
+
+      // Fire-and-forget memory extraction. Never blocks the user.
+      fetch("/api/memory/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apiKey,
+          existing,
+          user: lastUser,
+          assistant: lastAssistant,
+        }),
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json?.error) {
+            console.warn("[memory] extraction error:", json.error, json.raw || "");
+          }
+          if (!json || !Array.isArray(json.facts)) return;
+          const newFacts = memoryOps.replaceAuto(json.facts as string[]);
+          if (newFacts.length > 0) {
+            setRecentAutoFacts(newFacts.map((f) => f.text));
+          }
+        })
+        .catch((err) => {
+          console.warn("[memory] extraction failed:", err);
+        });
+    },
+    [memoryLines, memoryOps, threadOps],
   );
 
   if (!manifest) {
@@ -304,6 +422,14 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
               activeGroupId={activeGroupId}
               onOpenLibrary={() => setLibraryOpen(true)}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenThreads={() => setThreadsOpen(true)}
+              onOpenMemory={() => setMemoryOpen(true)}
+              threadKey={activeThread?.id ?? null}
+              initialMessages={initialMessages}
+              memory={memoryLines}
+              onTurnComplete={onTurnComplete}
+              threadCount={threadsState.threads.length}
+              memoryCount={memory.facts.length}
             />
           </div>
         </>
@@ -318,6 +444,34 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
               openSource(doc, page);
               setLibraryOpen(false);
             }}
+          />
+          <ThreadSidebar
+            open={threadsOpen}
+            threads={threadsState.threads}
+            activeId={threadsState.activeId}
+            onClose={() => setThreadsOpen(false)}
+            onCreate={() => threadOps.create()}
+            onSelect={(id) => threadOps.setActive(id)}
+            onRename={threadOps.rename}
+            onDelete={threadOps.remove}
+            onOpenMemory={() => {
+              setThreadsOpen(false);
+              setMemoryOpen(true);
+            }}
+            memoryCount={memory.facts.length}
+          />
+          <MemoryDialog
+            open={memoryOpen}
+            memory={memory}
+            onClose={() => setMemoryOpen(false)}
+            onAdd={(text) => memoryOps.add(text, "manual")}
+            onUpdate={memoryOps.update}
+            onRemove={memoryOps.remove}
+            onClear={memoryOps.clear}
+          />
+          <MemoryToast
+            facts={recentAutoFacts}
+            onDismiss={() => setRecentAutoFacts([])}
           />
           <SettingsDialog
             open={settingsOpen}

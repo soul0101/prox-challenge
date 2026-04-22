@@ -6,7 +6,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 import { loadKB } from "@/lib/kb/load";
 import { paths } from "@/lib/kb/paths";
-import { hitsFromResults } from "@/lib/kb/search";
+import { hitsFromQueries } from "@/lib/kb/search";
 import { cropPage } from "@/lib/kb/crop";
 import { locateRegion } from "@/lib/kb/vision";
 import { generateArtifact, type ArtifactKind } from "./artifact";
@@ -72,16 +72,31 @@ export function buildMcpServer(bus: AgentEventBus, overrides: ToolOverrides = {}
 
       tool(
         "search",
-        "BM25 full-text search across all ingested manuals. Ranks over vision-generated summaries, figure captions, table text, keywords, and raw OCR text. Returns top matches with page citations and figure captions — use this to find candidate pages, then open_page to actually see them.",
+        `BM25 full-text search across all ingested manuals. Ranks over vision-generated summaries, figure captions, table text, keywords, and raw OCR text. Tokens are Porter-stemmed at both index and query time — "welding", "welded", "welds" collapse to the same root — and short all-caps codes (DCEP, FCAW, MIG) are preserved verbatim.
+
+IMPORTANT — pass MULTIPLE queries, not one.
+The manual uses formal vocabulary; users don't. You must expand the user's question into 2–4 paraphrases covering:
+  • the user's phrasing verbatim
+  • the manual's formal/jargon phrasing ("stick welding" → also pass "SMAW", "shielded metal arc")
+  • any abbreviation both expanded and contracted ("AC balance" → also "alternating current balance")
+  • split compound questions into per-topic variants (don't cram both into one query)
+Each paraphrase is scored independently; pages are merged with max-score + a small bonus for paraphrases that agree. One tool call covers the whole expansion — do NOT issue the same question multiple times.
+
+Returns top matches with page citations and figure captions. Use this to find candidate pages, then open_page to actually see them.`,
         {
-          query: z.string().describe("Natural-language query. Include jargon and part names verbatim."),
+          queries: z
+            .array(z.string().min(1))
+            .min(1)
+            .max(6)
+            .describe(
+              "2–4 paraphrases of the user's question (or 1 if truly unambiguous). Include jargon and part names verbatim. See the tool description for what to vary.",
+            ),
           top_k: z.number().int().min(1).max(12).optional().default(6),
           doc: z.string().optional().describe("Optional doc slug to restrict search"),
         },
-        async ({ query, top_k, doc }): Promise<CallToolResult> => {
+        async ({ queries, top_k, doc }): Promise<CallToolResult> => {
           const { index, manifest } = await loadKB();
-          const results = hitsFromResults(index, query, { top_k, doc });
-          // Enrich with a stable rendering hint.
+          const results = hitsFromQueries(index, queries, { top_k, doc });
           const rows = results.map((h) => ({
             doc: h.doc,
             doc_title: h.doc_title,
@@ -95,7 +110,7 @@ export function buildMcpServer(bus: AgentEventBus, overrides: ToolOverrides = {}
           return textContent(
             JSON.stringify(
               {
-                query,
+                queries,
                 hits: rows,
                 documents_available: manifest.documents.map((d) => ({ doc: d.slug, title: d.title })),
               },

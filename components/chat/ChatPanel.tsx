@@ -9,7 +9,12 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { BookOpen, Circle, Settings as SettingsIcon } from "lucide-react";
+import {
+  BookOpen,
+  Brain,
+  MessageSquare,
+  Settings as SettingsIcon,
+} from "lucide-react";
 import { toPayload, useSettings } from "@/lib/client/settings";
 import type { Manifest, ManifestEntry } from "@/lib/kb/types";
 import type {
@@ -51,6 +56,22 @@ type Props = {
   activeGroupId: string | null;
   onOpenLibrary: () => void;
   onOpenSettings: () => void;
+  onOpenThreads: () => void;
+  onOpenMemory: () => void;
+  /** Stable key for the active thread. Changing it resets the chat. */
+  threadKey: string | null;
+  /** Messages to hydrate on mount / thread switch. */
+  initialMessages: ChatMessage[];
+  /** Stable facts injected into the system prompt server-side. */
+  memory: string[];
+  /** Fired when a turn completes (successful or aborted). */
+  onTurnComplete?: (args: {
+    messages: ChatMessage[];
+    lastUser: string;
+    lastAssistant: string;
+  }) => void;
+  threadCount: number;
+  memoryCount: number;
 };
 
 function newId() {
@@ -72,6 +93,14 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
     activeGroupId,
     onOpenLibrary,
     onOpenSettings,
+    onOpenThreads,
+    onOpenMemory,
+    threadKey,
+    initialMessages,
+    memory,
+    onTurnComplete,
+    threadCount,
+    memoryCount,
   }: Props,
   ref,
 ) {
@@ -80,7 +109,16 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const memoryRef = useRef(memory);
+  useEffect(() => {
+    memoryRef.current = memory;
+  }, [memory]);
+  const onTurnCompleteRef = useRef(onTurnComplete);
+  useEffect(() => {
+    onTurnCompleteRef.current = onTurnComplete;
+  }, [onTurnComplete]);
+
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +126,19 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoStickRef = useRef(true);
+
+  // Hydrate (and reset) when the active thread changes. Any in-flight stream
+  // is aborted so it doesn't write into the newly-swapped-in thread.
+  useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setMessages(initialMessages);
+    setInput("");
+    setError(null);
+    setBusy(false);
+    autoStickRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadKey]);
 
   const prompts = useMemo(() => {
     const picks: { label: string; text: string }[] = [];
@@ -183,6 +234,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
             history: nextHistory
               .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
               .map((m) => ({ role: m.role, content: m.content })),
+            memory: memoryRef.current,
             ...toPayload(settingsRef.current),
           }),
         });
@@ -194,6 +246,18 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
         updateLast((m) => ({ ...m, streaming: false }));
         setBusy(false);
         abortRef.current = null;
+        // Persist + extract memory. Read latest messages via the functional
+        // setter so we capture everything the stream appended.
+        setMessages((ms) => {
+          const lastUser = [...ms].reverse().find((m) => m.role === "user");
+          const lastAsst = [...ms].reverse().find((m) => m.role === "assistant");
+          onTurnCompleteRef.current?.({
+            messages: ms,
+            lastUser: lastUser?.content || "",
+            lastAssistant: lastAsst?.content || "",
+          });
+          return ms;
+        });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -337,7 +401,20 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
       <header className="sticky top-0 z-20 border-b border-border-subtle bg-background/70 backdrop-blur-xl">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-3 px-4">
-          <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <button
+              onClick={onOpenThreads}
+              className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border-subtle bg-surface-2 text-fg-muted shadow-soft transition-colors hover:bg-surface-3 hover:text-fg"
+              aria-label="Conversations"
+              title="Conversations"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              {threadCount > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-4 min-w-[16px] place-items-center rounded-full border border-background bg-primary px-1 font-mono text-[9px] text-primary-foreground">
+                  {threadCount > 99 ? "99+" : threadCount}
+                </span>
+              )}
+            </button>
             <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border-subtle bg-surface-2 shadow-soft">
               <LogoMark size={20} />
             </div>
@@ -355,6 +432,25 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            <button
+              onClick={onOpenMemory}
+              className={cn(
+                "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11.5px] font-medium transition-colors",
+                memoryCount > 0
+                  ? "border-primary/40 bg-primary/10 text-fg hover:bg-primary/20"
+                  : "border-border-subtle bg-surface-2 text-fg-muted hover:bg-surface-3 hover:text-fg",
+              )}
+              aria-label="Memory"
+              title="What the assistant remembers about you"
+            >
+              <Brain className="h-3.5 w-3.5" />
+              <span>Memory</span>
+              {memoryCount > 0 && (
+                <span className="rounded-full bg-primary/20 px-1.5 py-0.5 font-mono text-[9.5px] text-primary">
+                  {memoryCount}
+                </span>
+              )}
+            </button>
             <Button variant="outline" size="sm" onClick={onOpenLibrary}>
               <BookOpen className="h-3.5 w-3.5" /> Library
             </Button>
