@@ -400,7 +400,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-border-subtle bg-background/70 backdrop-blur-xl">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-3 px-4">
+        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-2 px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-1.5">
             <button
               onClick={onOpenThreads}
@@ -420,12 +420,13 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-[14px] font-semibold tracking-tight text-fg">
+                <span className="truncate text-[14px] font-semibold tracking-tight text-fg">
                   Manual Copilot
                 </span>
                 <StatusDot busy={busy} error={!!error} />
               </div>
-              <div className="truncate font-mono text-[10.5px] text-fg-dim">
+              {/* Subtitle gets noisy on phones — collapse below sm. */}
+              <div className="hidden truncate font-mono text-[10.5px] text-fg-dim sm:block">
                 {docCount} doc{docCount !== 1 ? "s" : ""} · {pageCount.toLocaleString()} pages
                 {manifest.documents[0] ? ` · ${manifest.documents[0].title}` : ""}
               </div>
@@ -435,7 +436,9 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
             <button
               onClick={onOpenMemory}
               className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11.5px] font-medium transition-colors",
+                "inline-flex h-8 items-center gap-1.5 rounded-lg border text-[11.5px] font-medium transition-colors",
+                // Icon-only on phones; text+count on sm+.
+                "w-8 justify-center px-0 sm:w-auto sm:px-2.5",
                 memoryCount > 0
                   ? "border-primary/40 bg-primary/10 text-fg hover:bg-primary/20"
                   : "border-border-subtle bg-surface-2 text-fg-muted hover:bg-surface-3 hover:text-fg",
@@ -444,15 +447,23 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
               title="What the assistant remembers about you"
             >
               <Brain className="h-3.5 w-3.5" />
-              <span>Memory</span>
+              <span className="hidden sm:inline">Memory</span>
               {memoryCount > 0 && (
-                <span className="rounded-full bg-primary/20 px-1.5 py-0.5 font-mono text-[9.5px] text-primary">
+                <span className="hidden rounded-full bg-primary/20 px-1.5 py-0.5 font-mono text-[9.5px] text-primary sm:inline">
                   {memoryCount}
                 </span>
               )}
             </button>
-            <Button variant="outline" size="sm" onClick={onOpenLibrary}>
-              <BookOpen className="h-3.5 w-3.5" /> Library
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onOpenLibrary}
+              className="w-8 justify-center px-0 sm:w-auto sm:px-3"
+              aria-label="Library"
+              title="Library"
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Library</span>
             </Button>
             <button
               onClick={onOpenSettings}

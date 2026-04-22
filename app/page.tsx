@@ -17,28 +17,49 @@ import {
 } from "@/lib/client/threads";
 import { factsAsLines, useUserMemory } from "@/lib/client/memory";
 import { AppShell } from "@/components/shell/AppShell";
+import {
+  RightPanelTabs,
+  type RightTabDescriptor,
+} from "@/components/shell/RightPanelTabs";
 import { LogoMark } from "@/components/ui/LogoMark";
-import { FileText, Sparkles } from "lucide-react";
 import type { Manifest } from "@/lib/kb/types";
 import type {
   ArtifactAttachment,
   ChatMessage,
   SourceAttachment,
 } from "@/lib/client/chat-types";
+import { activeVersion } from "@/lib/client/chat-types";
 import { ease } from "@/lib/ui/motion";
-import { cn } from "@/lib/utils";
+
+/**
+ * A single tab in the right-side panel. Multiple artifact tabs can coexist
+ * (one per `group_id`); the source viewer is a singleton (opening a new
+ * page replaces the current source tab rather than stacking).
+ */
+type OpenTab =
+  | {
+      key: string;
+      kind: "artifact";
+      groupId: string;
+      /** User-chosen version for this tab; null means "follow latest". */
+      pickedVersion: number | null;
+    }
+  | {
+      key: string;
+      kind: "source";
+      doc: string;
+      page: number;
+      bbox: [number, number, number, number] | null;
+    };
+
+const SOURCE_TAB_KEY = "source";
+const artifactTabKey = (groupId: string) => `artifact:${groupId}`;
 
 export default function Home() {
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [activeVersion, setActiveVersion] = useState<number | null>(null);
-  const [sourceDoc, setSourceDoc] = useState<string | null>(null);
-  const [sourcePage, setSourcePage] = useState<number | null>(null);
-  const [sourceBbox, setSourceBbox] = useState<
-    [number, number, number, number] | null
-  >(null);
-  const [sourceOpen, setSourceOpen] = useState(false);
+  const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
+  const [activeTabKey, setActiveTabKey] = useState<string | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [threadsOpen, setThreadsOpen] = useState(false);
@@ -71,15 +92,11 @@ export default function Home() {
     return new Map(Object.entries(src));
   }, [activeThread?.artifacts]);
 
-  // When the active thread changes, clear the right-panel view state so we
-  // don't keep pointing at an artifact that belongs to the previous thread.
+  // When the active thread changes, clear all right-panel tabs — they belong
+  // to the previous thread and their group_ids won't resolve in the new one.
   useEffect(() => {
-    setActiveGroupId(null);
-    setActiveVersion(null);
-    setSourceOpen(false);
-    setSourceDoc(null);
-    setSourcePage(null);
-    setSourceBbox(null);
+    setOpenTabs([]);
+    setActiveTabKey(null);
   }, [activeThread?.id]);
 
   // Lazy ref for callbacks that run outside render (artifact events, turn
@@ -115,11 +132,6 @@ export default function Home() {
       setIsFirstVisit(false);
     }
   }, [isFirstVisit]);
-  /** Which right-panel the user last interacted with. Decides precedence when
-   *  both an artifact and a source happen to be active at the same time. */
-  const [rightPreference, setRightPreference] = useState<"artifact" | "source">(
-    "artifact",
-  );
 
   const chatRef = useRef<ChatPanelHandle>(null);
   // Track which (group_id, version) pairs we've already auto-fixed, so a
@@ -156,19 +168,68 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
       .catch((e) => setLoadError(String(e.message || e)));
   }, []);
 
-  const openSource = useCallback((doc: string, page: number, attach?: SourceAttachment | null) => {
-    setSourceDoc(doc);
-    setSourcePage(page);
-    setSourceBbox(attach?.bbox || null);
-    setSourceOpen(true);
-    setRightPreference("source");
-  }, []);
+  const openSource = useCallback(
+    (doc: string, page: number, attach?: SourceAttachment | null) => {
+      const bbox = attach?.bbox || null;
+      setOpenTabs((tabs) => {
+        const others = tabs.filter((t) => t.kind !== "source");
+        const next: OpenTab = { key: SOURCE_TAB_KEY, kind: "source", doc, page, bbox };
+        return [...others, next];
+      });
+      setActiveTabKey(SOURCE_TAB_KEY);
+    },
+    [],
+  );
 
   const openArtifact = useCallback((groupId: string, version?: number) => {
-    setActiveGroupId(groupId);
-    setActiveVersion(version ?? null);
-    setRightPreference("artifact");
+    const key = artifactTabKey(groupId);
+    setOpenTabs((tabs) => {
+      const existing = tabs.find((t) => t.key === key);
+      if (existing && existing.kind === "artifact") {
+        // Reuse the tab — only update the picked version if caller supplied one.
+        if (version == null || existing.pickedVersion === version) return tabs;
+        return tabs.map((t) =>
+          t.key === key && t.kind === "artifact"
+            ? { ...t, pickedVersion: version }
+            : t,
+        );
+      }
+      return [
+        ...tabs,
+        { key, kind: "artifact", groupId, pickedVersion: version ?? null },
+      ];
+    });
+    setActiveTabKey(key);
   }, []);
+
+  const closeTab = useCallback((key: string) => {
+    setOpenTabs((tabs) => {
+      const idx = tabs.findIndex((t) => t.key === key);
+      if (idx === -1) return tabs;
+      const next = tabs.filter((t) => t.key !== key);
+      setActiveTabKey((active) => {
+        if (active !== key) return active;
+        if (next.length === 0) return null;
+        // Prefer the tab that slid into this slot; fall back to the last one.
+        return next[Math.min(idx, next.length - 1)].key;
+      });
+      return next;
+    });
+  }, []);
+
+  const pickArtifactVersion = useCallback(
+    (groupId: string, version: number) => {
+      const key = artifactTabKey(groupId);
+      setOpenTabs((tabs) =>
+        tabs.map((t) =>
+          t.key === key && t.kind === "artifact"
+            ? { ...t, pickedVersion: version }
+            : t,
+        ),
+      );
+    },
+    [],
+  );
 
   const onArtifactEvent = useCallback(
     (
@@ -226,12 +287,13 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
       threadOps.updateActive({
         artifacts: { ...current.artifacts, [groupId]: updated },
       });
-      setActiveGroupId(groupId);
-      setActiveVersion(null);
-      setRightPreference("artifact");
+      // Open (or reuse) the tab for this group and pop it to the front of
+      // the user's attention. Pass `undefined` version so the tab follows
+      // "latest" rather than pinning to whichever version just arrived.
+      openArtifact(groupId);
       callback?.(groupId);
     },
-    [threadOps],
+    [threadOps, openArtifact],
   );
 
   const onTurnComplete = useCallback(
@@ -308,93 +370,97 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
     );
   }
 
-  const activeArtifact = activeGroupId
-    ? artifactsByGroup.get(activeGroupId) || null
-    : null;
-  // Resolve the active version to view; latest if none picked.
-  const activeArtifactWithVersion: ArtifactAttachment | null = activeArtifact
-    ? {
-        ...activeArtifact,
-        current_version:
-          activeVersion ?? activeArtifact.versions[activeArtifact.versions.length - 1].version,
-      }
-    : null;
+  // Resolve the currently-active tab into its payload.
+  const activeTab = openTabs.find((t) => t.key === activeTabKey) || null;
 
-  const showArtifact = !!activeArtifactWithVersion;
-  const showSource = sourceOpen && sourceDoc !== null && sourcePage !== null;
-
-  // Pick which panel to show. User intent (rightPreference) wins; if the
-  // preferred panel isn't available, fall back to the other.
-  const bothActive = showArtifact && showSource;
-  const showing: "artifact" | "source" | null = (() => {
-    if (rightPreference === "source" && showSource) return "source";
-    if (rightPreference === "artifact" && showArtifact) return "artifact";
-    if (showArtifact) return "artifact";
-    if (showSource) return "source";
-    return null;
-  })();
-
+  // If the active tab is an artifact but the underlying group has been
+  // garbage-collected (e.g., thread reset race), drop the tab silently.
   let rightKey: string | null = null;
   let rightNode: React.ReactNode = null;
-  if (showing === "artifact" && activeArtifactWithVersion) {
-    rightKey = `artifact:${activeArtifactWithVersion.group_id}`;
-    rightNode = (
-      <ArtifactPanel
-        artifact={activeArtifactWithVersion}
-        onClose={() => {
-          setActiveGroupId(null);
-          setActiveVersion(null);
-        }}
-        onPickVersion={(_, version) => setActiveVersion(version)}
-        onError={requestArtifactFix}
-      />
-    );
-  } else if (showing === "source") {
-    rightKey = `source:${sourceDoc}:${sourcePage}`;
+
+  if (activeTab?.kind === "artifact") {
+    const att = artifactsByGroup.get(activeTab.groupId);
+    if (att) {
+      const latest = att.versions[att.versions.length - 1].version;
+      const withVersion: ArtifactAttachment = {
+        ...att,
+        current_version: activeTab.pickedVersion ?? latest,
+      };
+      rightKey = activeTab.key;
+      rightNode = (
+        <ArtifactPanel
+          artifact={withVersion}
+          onClose={() => closeTab(activeTab.key)}
+          onPickVersion={(gid, version) => pickArtifactVersion(gid, version)}
+          onError={requestArtifactFix}
+        />
+      );
+    }
+  } else if (activeTab?.kind === "source") {
+    rightKey = `${activeTab.key}:${activeTab.doc}:${activeTab.page}`;
     rightNode = (
       <SourceViewer
         manifest={manifest.documents}
-        open={sourceOpen}
-        activeDoc={sourceDoc}
-        activePage={sourcePage}
-        highlightBbox={sourceBbox}
-        onClose={() => setSourceOpen(false)}
+        open={true}
+        activeDoc={activeTab.doc}
+        activePage={activeTab.page}
+        highlightBbox={activeTab.bbox}
+        onClose={() => closeTab(activeTab.key)}
         onNavigate={(doc, page) => openSource(doc, page, null)}
       />
     );
   }
 
-  // When both are active, wrap the right-panel content with a thin switcher so
-  // the user can flip between the artifact and the currently-open source.
-  const rightWithSwitcher: React.ReactNode = rightNode && (
-    <div className="flex h-full min-w-0 flex-col">
-      {bothActive && showing && (
-        <RightPanelSwitcher
-          active={showing}
-          onSelect={setRightPreference}
-          artifactTitle={
-            activeArtifactWithVersion?.versions.find(
-              (v) => v.version === activeArtifactWithVersion.current_version,
-            )?.title
-          }
-          sourceLabel={
-            sourceDoc
-              ? `${
-                  manifest.documents.find((d) => d.slug === sourceDoc)?.title ||
-                  sourceDoc
-                } · p.${sourcePage}`
-              : null
-          }
-        />
-      )}
-      <div className="min-h-0 flex-1">{rightNode}</div>
-    </div>
-  );
+  // Build a descriptor per open tab for the strip.
+  const tabDescriptors: RightTabDescriptor[] = openTabs.map((t) => {
+    if (t.kind === "artifact") {
+      const att = artifactsByGroup.get(t.groupId);
+      const latest = att?.versions[att.versions.length - 1].version;
+      const v = att
+        ? activeVersion({
+            ...att,
+            current_version: t.pickedVersion ?? latest!,
+          })
+        : null;
+      return {
+        key: t.key,
+        kind: "artifact",
+        label: v?.title || "Artifact",
+        sublabel: v && att ? `v${v.version}/${att.versions.length}` : null,
+        artifactKind: v?.kind,
+      };
+    }
+    const docEntry = manifest.documents.find((d) => d.slug === t.doc);
+    return {
+      key: t.key,
+      kind: "source",
+      label: docEntry?.title || t.doc,
+      sublabel: `p.${t.page}`,
+    };
+  });
+
+  const activeArtifactGroupId =
+    activeTab?.kind === "artifact" ? activeTab.groupId : null;
+
+  const tabStrip =
+    tabDescriptors.length > 0 ? (
+      <RightPanelTabs
+        tabs={tabDescriptors}
+        activeKey={activeTabKey}
+        onSelect={setActiveTabKey}
+        onClose={closeTab}
+      />
+    ) : null;
 
   return (
     <AppShell
       rightKey={rightKey}
-      right={rightWithSwitcher}
+      right={rightNode}
+      tabs={tabStrip}
+      // Mobile swipe-down / scrim tap dismisses the sheet without destroying
+      // the user's open tabs — they can re-open any by tapping its inline
+      // card. The explicit × in tab strip or panel header still closes tabs.
+      onCloseRight={() => setActiveTabKey(null)}
       chat={
         <>
           <AnimatePresence>
@@ -419,7 +485,7 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
               onOpenSource={openSource}
               onArtifactEvent={onArtifactEvent}
               onOpenArtifact={openArtifact}
-              activeGroupId={activeGroupId}
+              activeGroupId={activeArtifactGroupId}
               onOpenLibrary={() => setLibraryOpen(true)}
               onOpenSettings={() => setSettingsOpen(true)}
               onOpenThreads={() => setThreadsOpen(true)}
@@ -487,58 +553,3 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
   );
 }
 
-function RightPanelSwitcher({
-  active,
-  onSelect,
-  artifactTitle,
-  sourceLabel,
-}: {
-  active: "artifact" | "source";
-  onSelect: (k: "artifact" | "source") => void;
-  artifactTitle?: string | null;
-  sourceLabel?: string | null;
-}) {
-  const tabs: {
-    key: "artifact" | "source";
-    Icon: React.ComponentType<{ className?: string }>;
-    label: string;
-    sub: string | null;
-  }[] = [
-    { key: "artifact", Icon: Sparkles, label: "Artifact", sub: artifactTitle || null },
-    { key: "source", Icon: FileText, label: "Source", sub: sourceLabel || null },
-  ];
-  return (
-    <div className="flex items-center gap-1 border-b border-border-subtle bg-surface-1/70 px-2 py-1.5 backdrop-blur-md">
-      {tabs.map(({ key, Icon, label, sub }) => {
-        const isActive = active === key;
-        return (
-          <button
-            key={key}
-            onClick={() => onSelect(key)}
-            className={cn(
-              "group relative inline-flex min-w-0 max-w-[50%] flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors",
-              isActive
-                ? "border-primary/50 bg-primary/10 text-fg"
-                : "border-border-subtle bg-surface-2/50 text-fg-muted hover:bg-surface-3/60 hover:text-fg",
-            )}
-          >
-            <Icon
-              className={cn(
-                "h-3.5 w-3.5 shrink-0",
-                isActive ? "text-primary" : "text-fg-dim",
-              )}
-            />
-            <div className="min-w-0">
-              <div className="truncate text-[11.5px] font-medium">{label}</div>
-              {sub && (
-                <div className="truncate font-mono text-[10px] text-fg-dim">
-                  {sub}
-                </div>
-              )}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}

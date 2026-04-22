@@ -176,8 +176,8 @@ export function ArtifactPanel({
   return (
     <aside className={cn("flex flex-col glass border-l border-l-border-strong/50", wrapper)}>
       {/* Top row: title + actions */}
-      <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 pb-2.5 pt-3">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="flex items-start justify-between gap-2 border-b border-border-subtle px-3 pb-2.5 pt-3 sm:gap-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           <div
             className={cn(
               "grid h-10 w-10 shrink-0 place-items-center rounded-xl ring-1",
@@ -250,15 +250,25 @@ export function ArtifactPanel({
               <Copy className="h-3.5 w-3.5" />
             )}
           </IconBtn>
-          <IconBtn title="Download as HTML" onClick={downloadStandalone}>
+          <IconBtn
+            title="Download as HTML"
+            onClick={downloadStandalone}
+            className="hidden sm:inline-flex"
+          >
             <Download className="h-3.5 w-3.5" />
           </IconBtn>
-          <IconBtn title="Open in new tab" onClick={openInNewTab}>
+          <IconBtn
+            title="Open in new tab"
+            onClick={openInNewTab}
+            className="hidden sm:inline-flex"
+          >
             <ExternalLink className="h-3.5 w-3.5" />
           </IconBtn>
           <IconBtn
             title={fullscreen ? "Exit full screen" : "Full screen"}
             onClick={() => setFullscreen((f) => !f)}
+            // Mobile sheet is already full-height; fullscreen would escape it.
+            className="hidden lg:inline-flex"
           >
             {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </IconBtn>
@@ -422,11 +432,13 @@ function IconBtn({
   onClick,
   title,
   disabled,
+  className,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   title: string;
   disabled?: boolean;
+  className?: string;
 }) {
   return (
     <button
@@ -434,7 +446,10 @@ function IconBtn({
       title={title}
       aria-label={title}
       disabled={disabled}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-fg-dim transition-all hover:bg-surface-3/70 hover:text-fg active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30"
+      className={cn(
+        "inline-flex h-8 w-8 items-center justify-center rounded-lg text-fg-dim transition-all hover:bg-surface-3/70 hover:text-fg active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30",
+        className,
+      )}
     >
       {children}
     </button>
