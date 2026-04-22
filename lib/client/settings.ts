@@ -55,6 +55,20 @@ function pick<T extends string>(
   return options.some((o) => o.value === candidate) ? (candidate as T) : fallback;
 }
 
+// Module-level shared store. Every useSettings() hook subscribes to this,
+// so an update from the settings dialog propagates synchronously to any
+// other useSettings() caller (e.g. ChatPanel) in the same tab. The
+// `storage` event alone isn't enough — browsers only fire it in OTHER
+// tabs, so without this the UI would require a page reload after
+// first-time key entry before the next /api/chat request picked it up.
+let currentSettings: Settings | null = null;
+const listeners = new Set<(s: Settings) => void>();
+
+function broadcast(s: Settings) {
+  currentSettings = s;
+  for (const l of listeners) l(s);
+}
+
 function saveSettings(s: Settings) {
   if (typeof window === "undefined") return;
   try {
@@ -62,6 +76,7 @@ function saveSettings(s: Settings) {
   } catch {
     /* quota / private mode — ignore */
   }
+  broadcast(s);
 }
 
 /**
@@ -88,31 +103,37 @@ export function markOnboarded() {
 
 /**
  * Stateful hook. Persists to localStorage and broadcasts to other tabs via
- * the `storage` event, so opening settings in one tab doesn't race another.
+ * the `storage` event AND to other hook callers in the same tab via an
+ * in-memory subscription, so the settings dialog and ChatPanel always see
+ * the same value without a page reload.
  */
 export function useSettings(): [Settings, (update: Partial<Settings>) => void, () => void] {
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<Settings>(
+    () => currentSettings ?? DEFAULT_SETTINGS,
+  );
 
   useEffect(() => {
-    setSettings(loadSettings());
+    if (currentSettings === null) currentSettings = loadSettings();
+    setSettings(currentSettings);
+    const listener = (s: Settings) => setSettings(s);
+    listeners.add(listener);
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setSettings(loadSettings());
+      if (e.key === STORAGE_KEY) broadcast(loadSettings());
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    return () => {
+      listeners.delete(listener);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   const update = useCallback((patch: Partial<Settings>) => {
-    setSettings((prev) => {
-      const next = { ...prev, ...patch };
-      saveSettings(next);
-      return next;
-    });
+    const base = currentSettings ?? loadSettings();
+    saveSettings({ ...base, ...patch });
   }, []);
 
   const reset = useCallback(() => {
     saveSettings(DEFAULT_SETTINGS);
-    setSettings(DEFAULT_SETTINGS);
   }, []);
 
   return [settings, update, reset];
