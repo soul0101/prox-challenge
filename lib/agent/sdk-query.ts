@@ -33,8 +33,23 @@ export function runQuery(args: { prompt: string; options: Options }) {
  * the subprocess.
  */
 export function envWithApiKey(apiKey?: string): Options["env"] | undefined {
-  if (!apiKey) return undefined;
-  return { ...process.env, ANTHROPIC_API_KEY: apiKey };
+  // The claude CLI writes to $HOME/.claude/… for session state, logs, and
+  // other scratch files. On Vercel serverless, $HOME points to a read-only
+  // path; only /tmp is writable. Redirect HOME (and XDG_* fallbacks) to
+  // /tmp so the subprocess can initialise cleanly. Safe locally too — the
+  // SDK's CLI doesn't reach into HOME for real config when
+  // ANTHROPIC_API_KEY is provided.
+  const overrides: Record<string, string> = {};
+  if (process.env.VERCEL) {
+    overrides.HOME = "/tmp";
+    overrides.XDG_CONFIG_HOME = "/tmp";
+    overrides.XDG_CACHE_HOME = "/tmp";
+    overrides.XDG_DATA_HOME = "/tmp";
+  }
+  if (apiKey) overrides.ANTHROPIC_API_KEY = apiKey;
+
+  if (Object.keys(overrides).length === 0) return undefined;
+  return { ...process.env, ...overrides };
 }
 
 /**
