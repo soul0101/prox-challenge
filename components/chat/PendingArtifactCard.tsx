@@ -9,6 +9,7 @@ import {
   FileCode,
   FileText,
   ListChecks,
+  Tag,
 } from "lucide-react";
 import type { ToolChip } from "@/lib/client/chat-types";
 
@@ -20,6 +21,7 @@ const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   markdown: FileText,
   flowchart: Workflow,
   procedure: ListChecks,
+  "image-labeling": Tag,
 };
 
 const KIND_LABEL: Record<string, string> = {
@@ -30,6 +32,7 @@ const KIND_LABEL: Record<string, string> = {
   markdown: "Markdown",
   flowchart: "Interactive flow",
   procedure: "Step-by-step guide",
+  "image-labeling": "Labelled diagram",
 };
 
 /** Skeleton card shown while Claude is still streaming an artifact's code.

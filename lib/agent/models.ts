@@ -40,7 +40,9 @@ export type ModelRole =
   /** Flowchart-spec author — emits the small JSON schema consumed by the flowchart template. Much cheaper than full TSX authoring. */
   | "qa.artifact.flowchart"
   /** Procedure-spec author — emits the step-by-step JSON consumed by the procedure stepper template. */
-  | "qa.artifact.procedure";
+  | "qa.artifact.procedure"
+  /** Image-labeling-spec author — emits the pinned-label JSON consumed by the image-labeling template. */
+  | "qa.artifact.image-labeling";
 
 const DEFAULTS: Record<ModelRole, string> = {
   "ingest.page": OPUS_MODEL,
@@ -51,6 +53,7 @@ const DEFAULTS: Record<ModelRole, string> = {
   "qa.artifact": OPUS_MODEL,
   "qa.artifact.flowchart": SONNET_MODEL,
   "qa.artifact.procedure": SONNET_MODEL,
+  "qa.artifact.image-labeling": SONNET_MODEL,
 };
 
 function resolveTier(value: string): string | null {

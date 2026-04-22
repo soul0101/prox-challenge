@@ -2,6 +2,7 @@ import { modelFor, modelForTier } from "./models";
 import { collectText, envWithApiKey, runQuery } from "./sdk-query";
 import { parseFlowchart } from "./flowchart-schema";
 import { parseProcedure } from "./procedure-schema";
+import { parseImageLabeling } from "./image-labeling-schema";
 
 /**
  * Dedicated artifact author. The orchestrator (Sonnet) writes a spec — what to
@@ -28,7 +29,8 @@ export type ArtifactKind =
   | "mermaid"
   | "markdown"
   | "flowchart"
-  | "procedure";
+  | "procedure"
+  | "image-labeling";
 
 const KIND_GUIDE: Record<ArtifactKind, string> = {
   react: `React + TSX in a sandboxed iframe. Export default function Component. Globals available without import statements: React, all hooks (useState, useEffect, useMemo, useRef, useCallback, useReducer). Imports that DO work: "recharts" (LineChart, BarChart, Tooltip, ResponsiveContainer, etc.), "lucide-react" (every icon). No other imports. Tailwind classes work — use them liberally. The iframe has no network, no localStorage, no window.parent tricks.
@@ -40,6 +42,7 @@ Design bar: this should look like a polished product, not a demo. Use spacing, t
   markdown: `Long-form markdown. Use sparingly — prefer react/html for interactivity. Use headings, lists, and tables. Every factual claim must cite the source page.`,
   flowchart: `A small JSON payload that drives the shared interactive-flowchart template (stepper + collapsible "show full flow" overview). See the dedicated FLOWCHART schema section for the exact shape. Output MUST be valid JSON and nothing else.`,
   procedure: `A small JSON payload that drives the shared interactive step-by-step procedure template (Next/Previous stepper with per-step image + markdown + optional warning). See the dedicated PROCEDURE schema section for the exact shape. Output MUST be valid JSON and nothing else.`,
+  "image-labeling": `A small JSON payload that drives the shared image-labeling template — one image with numbered pin annotations. Hovering or clicking a pin shows a tooltip card with the label's title, description, and page citation. See the dedicated IMAGE-LABELING schema section for the exact shape. Output MUST be valid JSON and nothing else.`,
 };
 
 const SYSTEM_PROMPT = `You are an elite artifact author for a technical-manual assistant. You receive a SPEC describing what to build and the concrete numbers/citations extracted from the user's manual, and you output a single, complete, production-quality artifact.
@@ -148,6 +151,49 @@ NEVER
 - Emit unresolved branch targets.
 - Emit a flow where every path loops back on itself (there must be at least one terminal).`;
 
+const IMAGE_LABELING_SYSTEM_PROMPT = `You are an image-labeling-spec author for a technical-manual assistant. You receive a SPEC describing a manual page or figure to annotate (with the exact image URL, the parts/callouts that must be labelled, their positions, descriptions, and citations) and you output a single valid JSON document that drives a pre-built image-labeling renderer.
+
+YOUR OUTPUT IS RAW JSON AND NOTHING ELSE.
+- First character is "{". Last character is "}".
+- No markdown fences, no prose, no "Here is the…", no comments.
+- Do not wrap in \`\`\`json … \`\`\`.
+
+SCHEMA
+{
+  "title":    string                     // short headline, e.g. "Front panel controls"
+  "subtitle": string?                    // optional one-line summary
+  "imageUrl": string                     // required image URL — usually "/sources/{doc-slug}/p-NNN.png"
+  "imageAlt": string                     // required alt text for accessibility
+  "labels":   Label[]                    // 1+ pinned labels in display order (determines pin numbering)
+  "citations": string[]?                 // footer citations, e.g. ["p.15", "p.16"]
+}
+
+Label = {
+  "id":          string                  // short lowercase snake_case identifier, unique across labels ("drive_roller", "spool_mount")
+  "x":           number                  // horizontal pin position, 0–100 (percentage of image width)
+  "y":           number                  // vertical pin position, 0–100 (percentage of image height)
+  "title":       string                  // brief label text ("Drive roller", "Spool tension knob")
+  "description": string                  // 1–2 concise sentences from the manual — rendered in a small hover tooltip, so keep it tight
+  "citation":    string?                 // short page ref ("p.15")
+}
+
+QUALITY BAR
+1. Grounded. Every title / description / citation comes from the SPEC. Do NOT invent part names, adjustment ranges, or page refs. Use the manual's exact wording when it's concise.
+2. Precise positioning. x and y are PERCENTAGES (0–100), not pixel values. (50, 50) is the image center, (0, 0) is the top-left. Use the positions the SPEC gives you — the spec author has already mapped them to the manual's callouts.
+3. Descriptive but concise. The description renders inside a narrow hover tooltip — aim for 1–2 sentences, not a paragraph. "Pulls the wire off the spool. Tension is set with the top knob (1/2–4 turns, p.15)." beats a wall of text.
+4. Unique ids. Every label has a distinct id (snake_case). The renderer uses these as React keys.
+5. Ordered. Label order determines pin numbering (1, 2, 3…) — order them the way the SPEC lists them, typically top-to-bottom or following the manual's own numbering.
+6. Short titles (< 40 chars) so they fit on the description cards.
+7. Citations: short page refs ("p.15"), on each label that cites a specific manual page, plus an overall footer array.
+
+NEVER
+- Invent facts not in the SPEC.
+- Output anything other than the JSON object.
+- Wrap in markdown fences.
+- Use imageUrl values the SPEC didn't list (no guessing page numbers).
+- Emit x/y values outside 0–100.
+- Emit duplicate label ids.`;
+
 const PROCEDURE_SYSTEM_PROMPT = `You are a procedure-spec author for a technical-manual assistant. You receive a SPEC describing a linear step-by-step procedure (e.g. "loading a new wire spool") with the exact wording, photos/pages, and citations from the user's manual, and you output a single valid JSON document that drives a pre-built interactive-stepper renderer.
 
 YOUR OUTPUT IS RAW JSON AND NOTHING ELSE.
@@ -205,6 +251,9 @@ export async function generateArtifact(args: {
   }
   if (args.kind === "procedure") {
     return generateProcedure(args);
+  }
+  if (args.kind === "image-labeling") {
+    return generateImageLabeling(args);
   }
   return generateCodeArtifact(args);
 }
@@ -427,6 +476,88 @@ Output ONLY the JSON object. First character is "{". No prose, no fences, no com
 
   throw new Error(
     `procedure author emitted invalid JSON after retry: ${secondParsed.error}`,
+  );
+}
+
+/**
+ * Image-labeling path. Generates a small JSON payload — image URL plus
+ * pinned labels with pixel-percentage positions and descriptions — that the
+ * shared template renders as an interactive pin-and-panel view. Same
+ * validate-and-one-retry pattern as generateFlowchart / generateProcedure.
+ */
+async function generateImageLabeling(args: {
+  title: string;
+  spec: string;
+  priorCode?: string;
+  errorContext?: string;
+  signal?: AbortSignal;
+  apiKey?: string;
+  modelTier?: string;
+}): Promise<string> {
+  const { title, spec, priorCode, errorContext } = args;
+
+  const basePrompt = (extraError?: string) => {
+    const revisionBlock = priorCode
+      ? `\n\nPRIOR VERSION (previous attempt — use for context, emit a complete new JSON):\n\`\`\`\n${priorCode.length > 4000 ? priorCode.slice(0, 4000) + "\n…[truncated]" : priorCode}\n\`\`\``
+      : "";
+    const priorErr = errorContext
+      ? `\n\nTHE PRIOR VERSION FAILED TO RENDER with this error:\n\`\`\`\n${errorContext}\n\`\`\`\nFix the specific issue in the new JSON.`
+      : "";
+    const retryErr = extraError
+      ? `\n\nYOUR PREVIOUS RESPONSE FAILED VALIDATION:\n\`\`\`\n${extraError}\n\`\`\`\nFix that specific issue. Output ONLY valid JSON matching the schema above.`
+      : "";
+
+    return `Build an image-labeling artifact (JSON only).
+
+TITLE: ${title}
+
+SPEC (from the orchestrator — the image URL, the labels to pin with positions, descriptions, and citations):
+---
+${spec}
+---${revisionBlock}${priorErr}${retryErr}
+
+Output ONLY the JSON object. First character is "{". No prose, no fences, no commentary.`;
+  };
+
+  const runOnce = async (extraError?: string): Promise<string> => {
+    const abort = new AbortController();
+    if (args.signal) {
+      args.signal.addEventListener("abort", () => abort.abort(), { once: true });
+    }
+    const stream = runQuery({
+      prompt: basePrompt(extraError),
+      options: {
+        model: modelForTier(args.modelTier) || modelFor("qa.artifact.image-labeling"),
+        systemPrompt: IMAGE_LABELING_SYSTEM_PROMPT,
+        allowedTools: [],
+        tools: [],
+        permissionMode: "bypassPermissions",
+        abortController: abort,
+        env: envWithApiKey(args.apiKey),
+      },
+    });
+    const { text, error } = await collectText(stream);
+    if (error) throw new Error(`image-labeling generation failed: ${error}`);
+    if (!text) throw new Error("image-labeling generator returned empty output");
+    return stripFences(text).trim();
+  };
+
+  // First attempt.
+  const first = await runOnce();
+  const firstParsed = parseImageLabeling(first);
+  if (firstParsed.ok) {
+    return JSON.stringify(firstParsed.spec);
+  }
+
+  // One self-correcting retry.
+  const second = await runOnce(firstParsed.error);
+  const secondParsed = parseImageLabeling(second);
+  if (secondParsed.ok) {
+    return JSON.stringify(secondParsed.spec);
+  }
+
+  throw new Error(
+    `image-labeling author emitted invalid JSON after retry: ${secondParsed.error}`,
   );
 }
 

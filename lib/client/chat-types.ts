@@ -20,7 +20,7 @@ export type SourceAttachment = {
 export type ArtifactVersion = {
   /** unique id for this specific version */
   id: string;
-  kind: "react" | "html" | "svg" | "mermaid" | "markdown" | "flowchart" | "procedure";
+  kind: "react" | "html" | "svg" | "mermaid" | "markdown" | "flowchart" | "procedure" | "image-labeling";
   title: string;
   code: string;
   /** v1, v2, … */

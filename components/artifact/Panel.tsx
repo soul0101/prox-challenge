@@ -21,6 +21,7 @@ import {
   FileText,
   AlertTriangle,
   ListChecks,
+  Tag,
 } from "lucide-react";
 import {
   type ArtifactAttachment,
@@ -40,6 +41,7 @@ const KIND_GLYPH: Record<string, React.ComponentType<{ className?: string }>> = 
   markdown: FileText,
   flowchart: Workflow,
   procedure: ListChecks,
+  "image-labeling": Tag,
 };
 
 const KIND_TINT: Record<string, { ring: string; text: string; bg: string }> = {
@@ -50,6 +52,7 @@ const KIND_TINT: Record<string, { ring: string; text: string; bg: string }> = {
   markdown: { ring: "ring-zinc-500/30", text: "text-zinc-200", bg: "bg-zinc-500/10" },
   flowchart: { ring: "ring-orange-500/30", text: "text-orange-200", bg: "bg-orange-500/10" },
   procedure: { ring: "ring-sky-500/30", text: "text-sky-200", bg: "bg-sky-500/10" },
+  "image-labeling": { ring: "ring-rose-500/30", text: "text-rose-200", bg: "bg-rose-500/10" },
 };
 
 export function ArtifactPanel({
@@ -539,6 +542,17 @@ function buildStandaloneHtml(v: ArtifactVersion): string {
           const sources = spec.citations && spec.citations.length ? '<div style="margin-top:20px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#71717a;">Sources: ' + spec.citations.map(esc).join(', ') + '</div>' : '';
           const style = '<style>.proc-body p{margin:0.5em 0}.proc-body ul,.proc-body ol{padding-left:1.4em;margin:0.5em 0}.proc-body li{margin:0.25em 0}.proc-body strong{color:#fafafa}.proc-body code{background:rgba(255,255,255,0.06);color:#bae6fd;padding:1.5px 6px;border-radius:4px;font-size:12px}.proc-body h1,.proc-body h2,.proc-body h3{color:#fafafa;margin:0.8em 0 0.4em}</style>';
           root.innerHTML = style + header + stepHtml + sources;
+        } else if (kind === "image-labeling") {
+          // Downloads render a static image + numbered pins with a fallback
+          // numbered legend (hover tooltips can't survive a static HTML export).
+          const spec = JSON.parse(code);
+          const pins = (spec.labels || []).map((l, i) => '<div title="' + esc(l.title) + '" style="position:absolute;left:' + l.x + '%;top:' + l.y + '%;transform:translate(-50%,-50%);display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:2px solid #fda4af;background:rgba(244,63,94,0.85);color:#fff;font-family:ui-monospace,monospace;font-size:12px;font-weight:600;box-shadow:0 0 12px rgba(244,63,94,0.4);">' + (i + 1) + '</div>').join('');
+          const legend = (spec.labels || []).map((l, i) => '<li style="display:flex;gap:10px;padding:8px 10px;margin-bottom:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;border:1px solid rgba(244,63,94,0.4);background:rgba(244,63,94,0.15);color:#fecdd3;font-family:ui-monospace,monospace;font-size:10.5px;font-weight:600;flex-shrink:0;">' + (i + 1) + '</span><div><div style="font-size:13px;font-weight:600;color:#fafafa;">' + esc(l.title) + (l.citation ? ' <span style="font-family:ui-monospace,monospace;color:#a1a1aa;font-size:10.5px;margin-left:6px;">' + esc(l.citation) + '</span>' : '') + '</div><div style="margin-top:2px;font-size:12px;color:#d4d4d8;line-height:1.5;">' + esc(l.description) + '</div></div></li>').join('');
+          const header = '<div style="margin-bottom:16px;"><div style="font-size:20px;font-weight:700;color:#fafafa;">' + esc(spec.title) + '</div>' + (spec.subtitle ? '<div style="color:#a1a1aa;font-size:13px;margin-top:4px;">' + esc(spec.subtitle) + '</div>' : '') + '<div style="font-family:ui-monospace,monospace;font-size:10.5px;color:#71717a;margin-top:6px;text-transform:uppercase;letter-spacing:0.05em;">Static labelled diagram &middot; hover tooltips only available in app</div></div>';
+          const stage = '<div style="position:relative;border:1px solid rgba(255,255,255,0.08);border-radius:14px;overflow:hidden;background:rgba(0,0,0,0.3);margin-bottom:14px;"><img src="' + esc(spec.imageUrl) + '" alt="' + esc(spec.imageAlt || '') + '" style="display:block;max-width:100%;width:100%;object-fit:contain;" />' + pins + '</div>';
+          const legendBlock = '<details style="margin-top:10px;"><summary style="cursor:pointer;font-family:ui-monospace,monospace;font-size:10.5px;color:#a1a1aa;text-transform:uppercase;letter-spacing:0.06em;">Show label legend (' + (spec.labels?.length || 0) + ')</summary><ol style="list-style:none;padding:12px 0 0;margin:0;">' + legend + '</ol></details>';
+          const sources = spec.citations && spec.citations.length ? '<div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#71717a;">Sources: ' + spec.citations.map(esc).join(', ') + '</div>' : '';
+          root.innerHTML = header + stage + legendBlock + sources;
         } else if (kind === "flowchart") {
           // Downloads render a static tree view of the flow (no interactivity).
           // The in-app panel is the place to walk through it step-by-step.

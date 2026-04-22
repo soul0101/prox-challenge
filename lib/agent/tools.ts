@@ -307,6 +307,7 @@ Kinds (pick the simplest that communicates the idea):
 - "svg": inline SVG. Best for schematics, socket maps, labelled static diagrams.
 - "flowchart": DEFAULT for any decision tree / troubleshooting / diagnostic flow. You emit a small JSON spec (questions, branches, terminals, citations) — a shared React template renders it as an interactive stepper with a collapsible "show full flow" overview. Much faster and cheaper than authoring the stepper TSX from scratch, and the look is consistent across flows. See the SPEC section below for the JSON shape.
 - "procedure": DEFAULT for any LINEAR step-by-step how-to. Use whenever the user asks "how do I load/install/replace/set up X" and the manual gives an ordered procedure with photos — wire spool loading, torch assembly, gas bottle hookup, drive-roller swap, calibration sequences. You emit a small JSON spec (ordered steps with markdown body + optional manual page image per step); a shared React template renders an interactive Next/Previous stepper with progress bar, per-step image, warnings, and citations. Prefer this over "markdown" for any procedure with > 2 steps or any step that benefits from showing the manual photo. See the SPEC section below for the JSON shape.
+- "image-labeling": DEFAULT for "what are the parts of…" / "label the controls on…" / "show me a labelled diagram of X" questions where the manual already has a photo or schematic with callouts. You emit a small JSON spec — the manual page image URL plus an ordered list of pinned labels (each with x/y percentage position, short title, and a 1–2 sentence description from the manual). A shared React template renders the image with numbered pins; hovering or clicking a pin shows a compact tooltip with the title, description, and citation. Prefer this over "svg" whenever the manual's own photo is the source of truth — don't redraw what the manual already has. See the SPEC section below for the JSON shape.
 - "mermaid": static Mermaid diagram. Use sparingly — only for tiny at-a-glance reference diagrams (< 5 nodes) where the user just needs to see the shape, not navigate. Never use for real decision trees; use "flowchart" for those.
 - "html": standalone sandboxed HTML. Use only when React is overkill (trivial static layouts).
 - "react": React/TSX in a sandboxed iframe. Hooks + recharts + lucide-react + Tailwind preloaded. Best for calculators, configurators, charts. ESCAPE HATCH for decision trees: use "react" only if the flow genuinely needs mixed interactivity the "flowchart" template cannot express (e.g. a node that embeds a live calculator, a chart, or non-tree navigation with state that branches and merges).
@@ -340,13 +341,21 @@ The procedure kind is also schema-driven — a shared React template renders a N
 - **Citations**: a page range covering the whole procedure for the footer ("p.10", "p.11", "p.12", "p.15", "p.17").
 A weak procedure spec says "wire spool loading guide". A strong one lists 8–12 numbered steps, each with the exact manual wording, the page image URL, and any warning verbatim.
 
+IMAGE-LABELING SPECS (kind="image-labeling")
+The image-labeling kind is schema-driven — a shared React template renders the image with numbered pins. Hovering or clicking a pin shows a tooltip with the title, description, and citation for that label. There is no bottom panel — the tooltip is the only place the description text appears, so keep descriptions tight. Your spec should enumerate the image and every callout the author needs to pin:
+- **Image**: the full manual-page image URL ("/sources/{doc-slug}/p-NNN.png") and a short alt text describing the scene. You MUST have opened the page (open_page or show_source) so you know which callouts exist and roughly where they sit.
+- **Labels (ordered)**: for each callout list: a stable snake_case id ("drive_roller", "spool_knob"), the x/y PERCENTAGE position on the page image (0–100, with 0,0 = top-left; use open_page's rendered-pixel coords ÷ the page dimensions to approximate), the short label title (from the manual's own callout when it has one), a 1–2 sentence description of what the part is / does (manual wording preferred — keep it tight since it renders in a narrow hover tooltip), and a short page citation.
+- **Citations**: the manual pages backing the labels.
+Pin ordering = pin numbering (1, 2, 3…). Order labels the way the manual does, typically top-to-bottom or following the manual's own callout numbers.
+A weak image-labeling spec says "label the front panel". A strong one lists every callout by name, with approximate x/y percentages, a tight 1–2 sentence description per label, and page citations.
+
 VERSIONING
 If you are revising an existing artifact (user asked you to tweak it, add a feature, fix a visual bug), pass the SAME \`group_id\` — the UI stacks the new version as v2/v3 under the existing card. Use a fresh stable slug ("duty-cycle-calc", "porosity-tree") for brand-new artifacts.
 
 AUTO-FIX FLOW
 If a prior artifact failed to render (you'll receive an error message), call emit_artifact AGAIN with the same group_id and pass the error verbatim as \`error_context\`. The author will diagnose and fix. You don't need to guess the syntax fix — just relay the error and restate the spec.`,
         {
-          kind: z.enum(["react", "html", "svg", "mermaid", "markdown", "flowchart", "procedure"]),
+          kind: z.enum(["react", "html", "svg", "mermaid", "markdown", "flowchart", "procedure", "image-labeling"]),
           title: z.string().describe("Short user-facing title shown on the artifact card."),
           spec: z
             .string()

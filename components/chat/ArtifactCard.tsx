@@ -11,6 +11,7 @@ import {
   Workflow,
   FileText,
   ListChecks,
+  Tag,
 } from "lucide-react";
 import {
   type ArtifactAttachment,
@@ -26,6 +27,7 @@ const KIND_LABEL: Record<string, string> = {
   markdown: "Markdown",
   flowchart: "Interactive flow",
   procedure: "Step-by-step guide",
+  "image-labeling": "Labelled diagram",
 };
 
 const KIND_ACCENT: Record<
@@ -73,6 +75,12 @@ const KIND_ACCENT: Record<
     text: "text-zinc-200",
     ring: "ring-zinc-500/30",
     Icon: FileText,
+  },
+  "image-labeling": {
+    grad: "from-rose-500/25 via-pink-500/10 to-transparent",
+    text: "text-rose-200",
+    ring: "ring-rose-500/30",
+    Icon: Tag,
   },
 };
 

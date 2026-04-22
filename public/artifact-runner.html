@@ -943,6 +943,270 @@ export default function ProcedureTemplate({ spec }: { spec: Spec }) {
 }
     </script>
 
+    <!--
+      Shared React template for kind="image-labeling". The agent emits a small
+      JSON payload (image URL + pinned labels with x/y percentages + descriptions);
+      this template renders the image with numbered pin overlays and a
+      description panel below. Hovering or focusing a pin highlights the matching
+      description card (and vice versa); clicking either pins the selection so
+      the reader can take their hands off the mouse.
+    -->
+    <script id="image-labeling-template-tsx" type="text/tsx-template">
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+type Label = {
+  id: string;
+  x: number;
+  y: number;
+  title: string;
+  description: string;
+  citation?: string;
+};
+
+type Spec = {
+  title: string;
+  subtitle?: string;
+  imageUrl: string;
+  imageAlt: string;
+  labels: Label[];
+  citations?: string[];
+};
+
+function cls(...xs: (string | false | null | undefined)[]) {
+  return xs.filter(Boolean).join(" ");
+}
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-zinc-300">
+      {children}
+    </span>
+  );
+}
+
+function Header({ spec }: { spec: Spec }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <div className="text-[20px] font-semibold leading-tight text-zinc-50">
+          {spec.title}
+        </div>
+        {spec.subtitle ? (
+          <div className="mt-1 text-[13px] leading-snug text-zinc-400">
+            {spec.subtitle}
+          </div>
+        ) : null}
+      </div>
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/[0.08] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-rose-200">
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
+        labelled diagram
+      </span>
+    </div>
+  );
+}
+
+// Rich hover/focus tooltip rendered next to the pin. Position flips to the
+// opposite side when the pin is near the image edge so the card stays
+// on-screen without any measurement gymnastics.
+function PinTooltip({ label, x, y }: { label: Label; x: number; y: number }) {
+  const placeRight = x < 60;
+  const placeBelow = y < 55;
+  const style: React.CSSProperties = {
+    [placeRight ? "left" : "right"]: "calc(100% + 10px)",
+    [placeBelow ? "top" : "bottom"]: "0",
+  };
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 4, scale: 0.96 }}
+      transition={{ duration: 0.14 }}
+      style={style}
+      className="pointer-events-none absolute z-10 w-64 rounded-xl border border-rose-400/40 bg-zinc-950/95 p-3 text-left shadow-[0_12px_40px_-8px_rgba(0,0,0,0.7)] backdrop-blur"
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1 text-[13.5px] font-semibold leading-snug text-zinc-50">
+          {label.title}
+        </div>
+        {label.citation ? <Chip>{label.citation}</Chip> : null}
+      </div>
+      <div className="mt-1.5 text-[12.5px] leading-relaxed text-zinc-300">
+        {label.description}
+      </div>
+    </motion.div>
+  );
+}
+
+function Pin({
+  label,
+  index,
+  active,
+  pinned,
+  onActivate,
+  onClear,
+  onPin,
+}: {
+  label: Label;
+  index: number;
+  active: boolean;
+  pinned: boolean;
+  onActivate: () => void;
+  onClear: () => void;
+  onPin: () => void;
+}) {
+  const x = Math.max(0, Math.min(100, label.x));
+  const y = Math.max(0, Math.min(100, label.y));
+  return (
+    <div
+      style={{ left: x + "%", top: y + "%", zIndex: active ? 40 : pinned ? 20 : 10 }}
+      className="absolute -translate-x-1/2 -translate-y-1/2"
+    >
+      <button
+        type="button"
+        onMouseEnter={onActivate}
+        onMouseLeave={onClear}
+        onFocus={onActivate}
+        onBlur={onClear}
+        onClick={onPin}
+        aria-label={"Label " + (index + 1) + ": " + label.title}
+        className="relative block cursor-pointer outline-none"
+      >
+        <motion.span
+          initial={false}
+          animate={{ scale: active ? 1.18 : 1 }}
+          transition={{ type: "spring", stiffness: 420, damping: 26 }}
+          className={cls(
+            "relative flex h-8 w-8 items-center justify-center rounded-full border-2 font-mono text-[12px] font-semibold shadow-lg transition-colors duration-150",
+            active
+              ? "border-rose-300 bg-rose-500/90 text-white shadow-[0_0_24px_rgba(244,63,94,0.55)]"
+              : pinned
+              ? "border-rose-400/70 bg-rose-500/70 text-white shadow-[0_0_16px_rgba(244,63,94,0.35)]"
+              : "border-white/80 bg-zinc-900/85 text-zinc-100 hover:border-rose-300 hover:text-white",
+          )}
+        >
+          {active ? (
+            <motion.span
+              layoutId="pin-ring"
+              className="absolute inset-0 rounded-full ring-2 ring-rose-300/70"
+              transition={{ type: "spring", stiffness: 420, damping: 30 }}
+            />
+          ) : null}
+          <span className="relative">{index + 1}</span>
+        </motion.span>
+      </button>
+      <AnimatePresence>
+        {active ? <PinTooltip label={label} x={x} y={y} /> : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ImageStage({
+  spec,
+  activeId,
+  pinnedId,
+  onHover,
+  onClear,
+  onPin,
+}: {
+  spec: Spec;
+  activeId: string | null;
+  pinnedId: string | null;
+  onHover: (id: string) => void;
+  onClear: () => void;
+  onPin: (id: string) => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="relative overflow-visible rounded-2xl border border-white/10 bg-black/30 shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset]">
+      {!loaded && !failed ? (
+        <div className="absolute inset-0 animate-pulse rounded-2xl bg-gradient-to-br from-white/[0.02] via-white/[0.04] to-white/[0.02]" />
+      ) : null}
+      {failed ? (
+        <div className="flex aspect-[4/3] items-center justify-center px-6 text-center font-mono text-[11px] text-zinc-500">
+          image failed to load: {spec.imageUrl}
+        </div>
+      ) : (
+        <div className="relative">
+          <img
+            src={spec.imageUrl}
+            alt={spec.imageAlt}
+            onLoad={() => setLoaded(true)}
+            onError={() => setFailed(true)}
+            draggable={false}
+            className={cls(
+              "mx-auto block max-h-[560px] w-full select-none rounded-2xl object-contain transition-opacity duration-300",
+              loaded ? "opacity-100" : "opacity-0",
+            )}
+          />
+          <div className="absolute inset-0">
+            {spec.labels.map((label, i) => (
+              <Pin
+                key={label.id}
+                label={label}
+                index={i}
+                active={activeId === label.id}
+                pinned={pinnedId === label.id}
+                onActivate={() => onHover(label.id)}
+                onClear={onClear}
+                onPin={() => onPin(label.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Citations({ citations }: { citations: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-t border-white/5 pt-3 text-[11px] text-zinc-500">
+      <span className="font-mono text-[9.5px] uppercase tracking-wider">sources</span>
+      {citations.map((c, i) => (
+        <Chip key={i}>{c}</Chip>
+      ))}
+    </div>
+  );
+}
+
+export default function ImageLabelingTemplate({ spec }: { spec: Spec }) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+
+  const activeId = hoveredId ?? pinnedId;
+
+  function togglePin(id: string) {
+    setPinnedId((cur) => (cur === id ? null : id));
+  }
+
+  if (!spec.labels || spec.labels.length === 0) {
+    return <div className="artifact-err">image-labeling error: no labels in spec</div>;
+  }
+
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-4 pb-2 text-zinc-200">
+      <Header spec={spec} />
+
+      <ImageStage
+        spec={spec}
+        activeId={activeId}
+        pinnedId={pinnedId}
+        onHover={setHoveredId}
+        onClear={() => setHoveredId(null)}
+        onPin={togglePin}
+      />
+
+      {spec.citations && spec.citations.length > 0 ? (
+        <Citations citations={spec.citations} />
+      ) : null}
+    </div>
+  );
+}
+    </script>
+
     <script type="importmap">
       {
         "imports": {
@@ -1223,6 +1487,71 @@ export default function ProcedureTemplate({ spec }: { spec: Spec }) {
         return null;
       }
 
+      function validateImageLabelingSpec(spec) {
+        if (!spec || typeof spec !== "object") return "spec must be an object";
+        if (typeof spec.title !== "string" || !spec.title) return "missing title";
+        if (typeof spec.imageUrl !== "string" || !spec.imageUrl) return "missing imageUrl";
+        if (typeof spec.imageAlt !== "string" || !spec.imageAlt) return "missing imageAlt";
+        if (!Array.isArray(spec.labels) || spec.labels.length === 0) return "missing or empty labels[]";
+        const seen = new Set();
+        for (const [i, l] of spec.labels.entries()) {
+          if (!l || typeof l !== "object") return "labels[" + i + "] is not an object";
+          if (typeof l.id !== "string" || !l.id) return "labels[" + i + "] missing id";
+          if (seen.has(l.id)) return "labels[" + i + "].id \"" + l.id + "\" is duplicated";
+          seen.add(l.id);
+          if (typeof l.x !== "number" || l.x < 0 || l.x > 100) return "labels[" + i + "].x must be a number in 0–100";
+          if (typeof l.y !== "number" || l.y < 0 || l.y > 100) return "labels[" + i + "].y must be a number in 0–100";
+          if (typeof l.title !== "string" || !l.title) return "labels[" + i + "] missing title";
+          if (typeof l.description !== "string" || !l.description) return "labels[" + i + "] missing description";
+        }
+        return null;
+      }
+
+      async function renderImageLabeling(code) {
+        unmount();
+        let spec;
+        try {
+          spec = JSON.parse(code);
+        } catch (err) {
+          renderError("image-labeling: invalid JSON — " + (err?.message || err));
+          return;
+        }
+        const invalid = validateImageLabelingSpec(spec);
+        if (invalid) {
+          renderError("image-labeling: " + invalid);
+          return;
+        }
+        let Template;
+        try {
+          Template = await getSharedTemplate("image-labeling-template-tsx");
+        } catch (err) {
+          renderError("image-labeling template load failed: " + (err?.message || err));
+          return;
+        }
+
+        class Boundary extends React.Component {
+          constructor(p) { super(p); this.state = { err: null }; }
+          static getDerivedStateFromError(err) { return { err }; }
+          componentDidCatch(err) { post({ type: "error", message: String(err?.stack || err) }); }
+          render() {
+            if (this.state.err) {
+              return React.createElement("pre", { className: "artifact-err" }, String(this.state.err.stack || this.state.err));
+            }
+            return this.props.children;
+          }
+        }
+
+        try {
+          currentRoot = createRoot(rootEl);
+          currentRoot.render(
+            React.createElement(Boundary, null, React.createElement(Template, { spec })),
+          );
+          post({ type: "rendered", kind: "image-labeling" });
+        } catch (err) {
+          renderError("render: " + (err?.message || err));
+        }
+      }
+
       function validateProcedureSpec(spec) {
         if (!spec || typeof spec !== "object") return "spec must be an object";
         if (typeof spec.title !== "string" || !spec.title) return "missing title";
@@ -1340,6 +1669,7 @@ export default function ProcedureTemplate({ spec }: { spec: Spec }) {
             if (kind === "react") return renderReact(code || "");
             if (kind === "flowchart") return renderFlowchart(code || "");
             if (kind === "procedure") return renderProcedure(code || "");
+            if (kind === "image-labeling") return renderImageLabeling(code || "");
             renderError("unknown artifact kind: " + kind);
           } catch (err) {
             renderError(String(err?.stack || err));
