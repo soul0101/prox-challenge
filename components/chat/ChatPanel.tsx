@@ -8,7 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { Send, BookOpen, Wrench, Square } from "lucide-react";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
+import { BookOpen, Circle } from "lucide-react";
 import type { Manifest, ManifestEntry } from "@/lib/kb/types";
 import type {
   ArtifactAttachment,
@@ -16,15 +17,20 @@ import type {
   SourceAttachment,
   ToolChip,
 } from "@/lib/client/chat-types";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { LogoMark } from "@/components/ui/LogoMark";
 import { ToolChipRow } from "./ToolChipRow";
 import { CitationText } from "./CitationText";
 import { SourceCard } from "./SourceCard";
 import { ArtifactCard } from "./ArtifactCard";
 import { PendingArtifactCard } from "./PendingArtifactCard";
 import { AskBlock } from "./AskBlock";
-import { VoiceButton } from "./VoiceButton";
+import { Composer } from "./Composer";
+import { ThinkingIndicator } from "./ThinkingIndicator";
+import { ScrollToLatest } from "./ScrollToLatest";
+import { WelcomeHero } from "./WelcomeHero";
+import { ease, fadeUp } from "@/lib/ui/motion";
+import { cn } from "@/lib/utils";
 
 type ArtifactEvent = {
   id: string;
@@ -70,8 +76,10 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showScrollFab, setShowScrollFab] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const autoStickRef = useRef(true);
 
   const prompts = useMemo(() => {
     const picks: { label: string; text: string }[] = [];
@@ -83,12 +91,36 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
     return picks.slice(0, 6);
   }, [manifest.documents]);
 
-  // Auto-scroll on message change.
+  // Auto-scroll on message change when user is anchored to the bottom.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    if (autoStickRef.current) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
   }, [messages]);
+
+  // Track whether the user has scrolled up — drives the "scroll to latest" FAB.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      const atBottom = distFromBottom < 80;
+      autoStickRef.current = atBottom;
+      setShowScrollFab(distFromBottom > 220);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    autoStickRef.current = true;
+  }, []);
 
   const updateLast = useCallback(
     (fn: (m: ChatMessage) => ChatMessage) => {
@@ -129,6 +161,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
       setInput("");
       setBusy(true);
       setError(null);
+      autoStickRef.current = true;
 
       const ac = new AbortController();
       abortRef.current = ac;
@@ -154,6 +187,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
         abortRef.current = null;
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [busy, messages, updateLast],
   );
 
@@ -165,7 +199,6 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
           updateLast((m) => ({ ...m, content: m.content + String(e.text || "") }));
           break;
         case "assistant":
-          // Final assembled text — prefer over cumulative deltas if it's longer.
           updateLast((m) => {
             const incoming = String(e.text || "");
             if (incoming.length >= m.content.length) return { ...m, content: incoming };
@@ -175,8 +208,6 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
         case "tool_start": {
           const id = String(e.id);
           updateLast((m) => {
-            // Dedupe: if we already have a chip with this id (e.g. from an
-            // earlier partial), keep it and just ensure it has the name/input.
             const existing = m.toolChips.find((c) => c.id === id);
             if (existing) {
               return {
@@ -249,9 +280,6 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
               version_note: e.version_note,
             },
             (groupId) => {
-              // Track new groups on the in-flight assistant turn so the inline
-              // card appears in the right message. Re-emits as v2+ won't add a
-              // new group to the message — the existing card just updates.
               updateLast((m) =>
                 m.artifactGroups.includes(groupId)
                   ? m
@@ -290,129 +318,134 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
 
   useImperativeHandle(ref, () => ({ submit }), [submit]);
 
+  const placeholders = useMemo(() => prompts.map((p) => p.text).slice(0, 3), [prompts]);
+  const docCount = manifest.documents.length;
+  const pageCount = manifest.documents.reduce((s, d) => s + d.page_count, 0);
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <div className="grid h-7 w-7 place-items-center rounded-md bg-primary/15 text-primary">
-            <Wrench className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold">Manual Copilot</div>
-            <div className="text-[10px] text-muted-foreground">
-              {manifest.documents.length} document{manifest.documents.length !== 1 && "s"} ·{" "}
-              {manifest.documents.reduce((s, d) => s + d.page_count, 0)} pages ingested
+      <header className="sticky top-0 z-20 border-b border-border-subtle bg-background/70 backdrop-blur-xl">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-3 px-4">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-border-subtle bg-surface-2 shadow-soft">
+              <LogoMark size={20} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-semibold tracking-tight text-fg">
+                  Manual Copilot
+                </span>
+                <StatusDot busy={busy} error={!!error} />
+              </div>
+              <div className="truncate font-mono text-[10.5px] text-fg-dim">
+                {docCount} doc{docCount !== 1 ? "s" : ""} · {pageCount.toLocaleString()} pages
+                {manifest.documents[0] ? ` · ${manifest.documents[0].title}` : ""}
+              </div>
             </div>
           </div>
+          <div className="flex items-center gap-1.5">
+            <Button variant="outline" size="sm" onClick={onOpenLibrary}>
+              <BookOpen className="h-3.5 w-3.5" /> Library
+            </Button>
+          </div>
         </div>
-        <Button variant="outline" size="sm" onClick={onOpenLibrary}>
-          <BookOpen className="h-3.5 w-3.5" /> Library
-        </Button>
-      </div>
+      </header>
 
       {/* Thread */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="mx-auto w-full max-w-3xl px-4 py-6 space-y-5">
+      <div
+        ref={scrollRef}
+        className="relative flex-1 overflow-y-auto scrollbar-thin"
+      >
+        <div className="mx-auto w-full max-w-3xl px-4 pb-40 pt-6">
           {messages.length === 0 && (
-            <WelcomeState
+            <WelcomeHero
               documents={manifest.documents}
               suggestions={prompts}
               onPick={(t) => submit(t)}
             />
           )}
-          {messages.map((m) => (
-            <MessageBubble
-              key={m.id}
-              message={m}
-              documents={manifest.documents}
-              artifactsByGroup={artifactsByGroup}
-              onOpenSource={onOpenSource}
-              onOpenArtifact={onOpenArtifact}
-              activeGroupId={activeGroupId}
-              onPickAskOption={(text) => submit(text)}
-              busy={busy}
-            />
-          ))}
-          {error && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-red-300">
-              {error}
+          <LayoutGroup>
+            <div className="space-y-6">
+              {messages.map((m, i) => (
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  documents={manifest.documents}
+                  artifactsByGroup={artifactsByGroup}
+                  onOpenSource={onOpenSource}
+                  onOpenArtifact={onOpenArtifact}
+                  activeGroupId={activeGroupId}
+                  onPickAskOption={(text) => submit(text)}
+                  busy={busy}
+                  isLastAssistant={
+                    m.role === "assistant" && i === messages.length - 1
+                  }
+                />
+              ))}
             </div>
-          )}
+          </LayoutGroup>
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mt-4 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-red-300"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+        <ScrollToLatest visible={showScrollFab} onClick={scrollToBottom} />
       </div>
 
       {/* Composer */}
-      <div className="border-t border-border bg-background/60 px-4 py-3">
-        <div className="mx-auto flex w-full max-w-3xl items-end gap-2">
-          <Textarea
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10">
+        <div className="pointer-events-none h-10 bg-gradient-to-b from-transparent to-background" />
+        <div className="pointer-events-auto bg-background/60 backdrop-blur-md">
+          <Composer
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about setup, troubleshooting, duty cycle, polarity…"
-            rows={2}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                submit(input);
-              }
-            }}
-            disabled={busy}
-            className="min-h-[44px] max-h-40 py-2.5"
+            onChange={setInput}
+            onSubmit={(v) => submit(v)}
+            onStop={stop}
+            onVoiceTranscript={(t) => submit(t)}
+            placeholders={placeholders}
+            busy={busy}
           />
-          <VoiceButton onTranscript={(t) => submit(t)} disabled={busy} />
-          {busy ? (
-            <Button variant="destructive" size="icon" onClick={stop} title="Stop">
-              <Square className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              size="icon"
-              onClick={() => submit(input)}
-              disabled={!input.trim()}
-              title="Send"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          )}
         </div>
       </div>
     </div>
   );
 });
 
-function WelcomeState({
-  documents,
-  suggestions,
-  onPick,
-}: {
-  documents: ManifestEntry[];
-  suggestions: { label: string; text: string }[];
-  onPick: (text: string) => void;
-}) {
-  const first = documents[0];
+function StatusDot({ busy, error }: { busy: boolean; error: boolean }) {
+  const color = error
+    ? "bg-destructive"
+    : busy
+      ? "bg-amber-400"
+      : "bg-emerald-400";
+  const label = error ? "error" : busy ? "thinking" : "ready";
   return (
-    <div className="text-center animate-fade-in py-8">
-      <h1 className="text-2xl font-semibold tracking-tight">
-        {first ? `Ask anything about the ${first.title}.` : "Manual Copilot"}
-      </h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        I read the manuals end-to-end with vision. I'll cite pages, surface diagrams, and draw
-        flowcharts or calculators when words aren't enough.
-      </p>
-      {suggestions.length > 0 && (
-        <div className="mt-7 grid gap-2 sm:grid-cols-2">
-          {suggestions.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => onPick(s.text)}
-              className="rounded-xl border border-border bg-card px-4 py-3 text-left text-sm hover:border-primary/60 transition-colors"
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+    <span
+      className="inline-flex items-center gap-1 font-mono text-[9.5px] uppercase tracking-wide text-fg-dim"
+      title={label}
+    >
+      <span className="relative inline-flex">
+        <span className={cn("block h-1.5 w-1.5 rounded-full", color)} />
+        {(busy || error) && (
+          <span
+            className={cn(
+              "absolute inset-0 animate-ping rounded-full opacity-70",
+              color,
+            )}
+          />
+        )}
+      </span>
+      {label}
+    </span>
   );
 }
 
@@ -425,6 +458,7 @@ function MessageBubble({
   activeGroupId,
   onPickAskOption,
   busy,
+  isLastAssistant,
 }: {
   message: ChatMessage;
   documents: ManifestEntry[];
@@ -434,37 +468,62 @@ function MessageBubble({
   activeGroupId: string | null;
   onPickAskOption: (text: string) => void;
   busy: boolean;
+  isLastAssistant: boolean;
 }) {
   if (message.role === "user") {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[78%] rounded-2xl rounded-br-sm bg-primary px-4 py-2 text-sm text-primary-foreground whitespace-pre-wrap">
-          {message.content}
+      <motion.div
+        layout="position"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0, transition: { duration: 0.24, ease: ease.smooth } }}
+        className="flex justify-end"
+      >
+        <div className="group relative max-w-[82%]">
+          <div className="whitespace-pre-wrap rounded-3xl rounded-br-lg bg-gradient-to-br from-primary to-primary/85 px-4 py-2.5 text-[14px] leading-relaxed text-primary-foreground shadow-brand ring-1 ring-white/10">
+            {message.content}
+          </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   const stillWorking =
-    message.streaming ||
-    message.toolChips.some((c) => c.status === "running");
+    message.streaming || message.toolChips.some((c) => c.status === "running");
+  const hasAttachments =
+    message.sources.length > 0 ||
+    message.artifactGroups.length > 0 ||
+    !!message.ask ||
+    message.toolChips.some((c) => c.name.endsWith("emit_artifact"));
 
   return (
-    <div className="flex justify-start animate-fade-in">
-      <div className="w-full max-w-full">
+    <motion.div
+      layout="position"
+      variants={fadeUp}
+      initial="hidden"
+      animate="show"
+      className="flex justify-start gap-3"
+    >
+      <div className="mt-0.5 shrink-0">
+        <AssistantAvatar streaming={stillWorking && isLastAssistant} />
+      </div>
+      <div className="min-w-0 flex-1">
         <ToolChipRow chips={message.toolChips} />
         {!message.content && stillWorking && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-            thinking
-          </div>
+          <ThinkingIndicator chips={message.toolChips} />
         )}
         {message.content && (
-          <CitationText
-            text={message.content}
-            documents={documents}
-            onCite={onOpenSource}
-          />
+          <div
+            className={cn(
+              hasAttachments &&
+                "rounded-2xl border border-border-subtle bg-surface-1/50 px-4 py-3",
+            )}
+          >
+            <CitationText
+              text={message.content}
+              documents={documents}
+              onCite={onOpenSource}
+            />
+          </div>
         )}
         {message.sources.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
@@ -488,7 +547,7 @@ function MessageBubble({
             message.artifactGroups.length > 0 || pendingArtifactChips.length > 0;
           if (!hasContent) return null;
           return (
-            <div className="mt-2 space-y-1.5">
+            <div className="mt-2.5 space-y-1.5">
               {pendingArtifactChips.map((c) => (
                 <PendingArtifactCard key={`pending-${c.id}`} chip={c} />
               ))}
@@ -508,7 +567,7 @@ function MessageBubble({
           );
         })()}
         {message.ask && (
-          <div className="mt-2">
+          <div className="mt-2.5">
             <AskBlock
               ask={message.ask}
               onAnswer={(t) => onPickAskOption(t)}
@@ -516,6 +575,29 @@ function MessageBubble({
             />
           </div>
         )}
+      </div>
+    </motion.div>
+  );
+}
+
+function AssistantAvatar({ streaming }: { streaming: boolean }) {
+  return (
+    <div className="relative grid h-7 w-7 place-items-center">
+      {streaming && (
+        <>
+          <span className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
+          <span className="absolute inset-0 rounded-full bg-primary/10" />
+        </>
+      )}
+      <div
+        className={cn(
+          "relative grid h-7 w-7 place-items-center rounded-full border",
+          streaming
+            ? "border-primary/60 bg-surface-2"
+            : "border-border-subtle bg-surface-1",
+        )}
+      >
+        <LogoMark size={14} />
       </div>
     </div>
   );

@@ -6,93 +6,124 @@
     "height": 2400,
     "text": "",
     "image_path": "/sources/selection-chart/p-001.png",
-    "summary": "This is a comprehensive welder selection chart designed to guide users through choosing the appropriate welding equipment and process. The chart is organized in six numbered steps covering wall level assessment, welding position, material type and thickness, material gauge ranges, typical applications, and welding process selection. It provides quick reference criteria for selecting between flux-core/FCAW, MIG/GMAW, stick/SMAW, and TIG/GTAW processes, with a quick guide example showing how to determine duty cycle based on amperage and usage patterns.",
-    "section_hint": "Product Selection / Getting Started",
+    "summary": "A 'How to Choose a Welder' selection chart that guides users through six questions—skill level, shielding gas need, material type, material thickness, typical applications, and required cleanliness—to recommend one of four welding processes: Flux-Cored/FCAW, MIG/GMAW, Stick/SMAW, or TIG/GTAW. A side panel addresses input voltage (120V or 240V) and MIG vs Flux-Cored selection, plus an explanation of duty cycle with an example (165A at 20% duty cycle = 2 minutes welding / 8 minutes resting in a 10-minute period).",
+    "section_hint": "Welder Selection Chart / Process Selection Guide",
     "figures": [
       {
-        "kind": "flowchart",
-        "caption": "Six-step welder selection decision matrix covering wall level, position, material type, gauge range, applications, and welding process with duty cycle quick guide example",
+        "kind": "selection chart",
+        "caption": "How to Choose a Welder matrix comparing Flux-Cored/FCAW, MIG/GMAW, Stick/SMAW, and TIG/GTAW across skill level, shielding gas, material, thickness, applications, and cleanliness",
         "keywords": [
-          "selection chart",
-          "decision tree",
           "welder selection",
-          "process selection",
-          "duty cycle calculation"
+          "process comparison",
+          "FCAW",
+          "GMAW",
+          "SMAW",
+          "GTAW",
+          "skill level",
+          "shielding gas"
+        ]
+      },
+      {
+        "kind": "informational sidebar",
+        "caption": "Input voltage and MIG vs Flux-Cored selection guide indicating 120V vs 240V compatibility for each process",
+        "keywords": [
+          "input voltage",
+          "120V",
+          "240V",
+          "MIG vs flux-cored"
+        ]
+      },
+      {
+        "kind": "diagram",
+        "caption": "Duty Cycle example illustration: 165A at 20% duty cycle equals 2 minutes welding and 8 minutes resting per 10-minute period",
+        "keywords": [
+          "duty cycle",
+          "165A",
+          "20% duty cycle",
+          "welding time",
+          "rest time"
         ]
       }
     ],
     "tables": [
       {
-        "title": "Welder Selection Decision Matrix",
+        "title": "How to Choose a Welder",
         "columns": [
-          "Step",
-          "Flux-Core/FCAW",
-          "MIG/GMAW",
-          "Stick/SMAW",
-          "TIG/GTAW"
+          "Question",
+          "Flux-Cored / FCAW",
+          "MIG / GMAW",
+          "Stick / SMAW",
+          "TIG / GTAW"
         ],
         "rows": [
           [
-            "1 - Wall Level",
-            "120V or 240V",
-            "120V or 240V",
-            "120V or 240V Required",
-            "240V Required"
+            "Skill level",
+            "Low–High",
+            "Low–High",
+            "Low–High",
+            "Low–High"
           ],
           [
-            "2 - Welding Position",
-            "Flat, Horizontal, Vertical, Overhead",
-            "All Positions",
-            "All Positions",
-            "All Positions"
+            "Shielding gas required?",
+            "No-gas required",
+            "Gas required",
+            "No-gas required",
+            "Gas required"
           ],
           [
-            "3 - Material Type",
+            "Material type",
             "Steel, Stainless Steel",
-            "Steel, Aluminum, Stainless Steel",
-            "Steel, Stainless Steel, Cast Iron",
-            "Steel, Aluminum, Stainless Steel, Exotic Metals"
+            "Steel, Stainless Steel, Aluminum (spool gun required)",
+            "Steel, Stainless Steel, Castings",
+            "Steel, Stainless Steel, Chrome-Moly, Magnesium Alloys (AC required)"
           ],
           [
-            "4 - Gauge Range",
+            "Material thickness",
             "18 Gauge to 5/16\"",
             "22 Gauge to 3/8\"",
-            "16 Gauge to 1/2\"",
+            "10 Gauge to 1/2\"",
             "24 Gauge to 3/16\""
           ],
           [
-            "5 - Typical Applications",
-            "General steel fab, Repair fabrication, Farm and ranch, Auto restoration",
-            "Sheet metal, Automotive body, Auto & farm, Structural steel",
-            "Pipe and fitting, Structural steel, Maintenance & repair, Farm and ranch",
-            "Stainless steel work, Repair, Exotic Metals, Auto and bike tubing, Pipe and art"
+            "Typical applications",
+            "Galvanized steel; general fabrication; pipe and tubing; maintenance & repair",
+            "Sheet metal; autobody; tubing; structural steel",
+            "Pipe and tubing; structural steel; pressure vessels; maintenance & repair",
+            "Stainless steel exhausts; bicycle frames; thin wall pipe & tubing; metal art"
           ],
           [
-            "6 - Welding Process",
-            "Ideal for outdoor or windy conditions, Forgiving welding on dirty or rusty metal, Easy to use and economical",
-            "Fast production thick welding speeds, No slag removal, Smooth weld bead, Excellent on sheet metal",
-            "Ideal for outdoor or windy conditions, Forgiving welding on dirty metal, Easy to use, Economical",
-            "Highest quality weld, Extreme weld bead appearance, Superior control, Minimal cleanup and finishing"
+            "Cleanliness",
+            "More spatter",
+            "Clean / minimal spatter",
+            "More spatter",
+            "Extremely clean"
+          ],
+          [
+            "Key benefits",
+            "Ideal for outdoor/windy conditions; forgiving on rusty/dirty steels; good out-of-position; high deposition rates",
+            "Fast production (high welding speeds); easiest to learn; clean welds with no slag; better control on thin materials",
+            "Ideal for outdoor/windy conditions; forgiving on rusty/dirty steels; deep penetration; good for thicker materials",
+            "Highest quality welds; extremely aesthetic welds; can be used on a variety of materials; precise control"
           ]
         ]
       }
     ],
     "keywords": [
-      "welder selection",
+      "welder selection chart",
+      "how to choose a welder",
       "FCAW",
-      "flux-core",
-      "GMAW",
+      "flux-cored",
       "MIG",
-      "SMAW",
+      "GMAW",
       "stick welding",
-      "GTAW",
+      "SMAW",
       "TIG",
+      "GTAW",
       "duty cycle",
-      "gauge range",
-      "welding position",
-      "wall level",
+      "shielding gas",
       "material thickness",
-      "process comparison"
+      "spool gun",
+      "input voltage"
     ],
     "is_mostly_visual": true
   }

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   X,
   Code2,
@@ -10,18 +11,41 @@ import {
   Minimize2,
   Download,
   ExternalLink,
-  History,
   ChevronLeft,
   ChevronRight,
   RotateCw,
+  Sparkles,
+  Shapes,
+  Workflow,
+  FileCode,
+  FileText,
+  AlertTriangle,
 } from "lucide-react";
 import {
   type ArtifactAttachment,
   type ArtifactVersion,
   activeVersion,
 } from "@/lib/client/chat-types";
+import { ease } from "@/lib/ui/motion";
+import { cn } from "@/lib/utils";
 
 type Tab = "view" | "code";
+
+const KIND_GLYPH: Record<string, React.ComponentType<{ className?: string }>> = {
+  react: Code2,
+  html: FileCode,
+  svg: Shapes,
+  mermaid: Workflow,
+  markdown: FileText,
+};
+
+const KIND_TINT: Record<string, { ring: string; text: string; bg: string }> = {
+  react: { ring: "ring-amber-500/30", text: "text-amber-200", bg: "bg-amber-500/10" },
+  html: { ring: "ring-cyan-500/30", text: "text-cyan-200", bg: "bg-cyan-500/10" },
+  svg: { ring: "ring-emerald-500/30", text: "text-emerald-200", bg: "bg-emerald-500/10" },
+  mermaid: { ring: "ring-violet-500/30", text: "text-violet-200", bg: "bg-violet-500/10" },
+  markdown: { ring: "ring-zinc-500/30", text: "text-zinc-200", bg: "bg-zinc-500/10" },
+};
 
 export function ArtifactPanel({
   artifact,
@@ -32,8 +56,6 @@ export function ArtifactPanel({
   artifact: ArtifactAttachment | null;
   onClose: () => void;
   onPickVersion: (groupId: string, version: number) => void;
-  /** Fired once per failing version when the iframe reports a render error.
-   *  Parent can use this to auto-request a regenerated v(n+1) from the agent. */
   onError?: (groupId: string, version: number, errorMsg: string, code: string) => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -44,14 +66,10 @@ export function ArtifactPanel({
   const [autoFixing, setAutoFixing] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  /** Track which version ids we've already reported errors for (avoids
-   *  reporting the same failure twice on re-mount / reload). */
   const reportedRef = useRef<Set<string>>(new Set());
 
   const v: ArtifactVersion | null = artifact ? activeVersion(artifact) : null;
 
-  // Reset ready/err state whenever the active version changes. Also clear
-  // the "auto-fixing" flag — a NEW version arriving means the fix landed.
   useEffect(() => {
     if (!v) return;
     setReady(false);
@@ -60,10 +78,8 @@ export function ArtifactPanel({
     setTab("view");
   }, [v?.id]);
 
-  // postMessage protocol with the iframe.
   useEffect(() => {
     if (!v) return;
-
     const onMsg = (e: MessageEvent) => {
       const d = e.data as { __artifact?: boolean; type?: string; message?: string };
       if (!d?.__artifact) return;
@@ -98,7 +114,6 @@ export function ArtifactPanel({
     }
   }, [v?.id, ready]);
 
-  // Esc to exit fullscreen.
   useEffect(() => {
     if (!fullscreen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -135,13 +150,11 @@ export function ArtifactPanel({
     const params = new URLSearchParams();
     params.set("kind", v.kind);
     params.set("title", v.title);
-    // Use sessionStorage for the code (URL params would blow up for big React).
     const key = `artifact:${artifact.group_id}:${v.version}`;
     try {
       sessionStorage.setItem(key, v.code);
       params.set("k", key);
     } catch {
-      // fall back to inline code (truncated if too big)
       params.set("code", v.code);
     }
     window.open(
@@ -151,26 +164,38 @@ export function ArtifactPanel({
     );
   };
 
-  const wrapper = fullscreen
-    ? "fixed inset-0 z-50 bg-background"
-    : "h-full";
+  const wrapper = fullscreen ? "fixed inset-0 z-50 bg-background" : "h-full";
+  const KindIcon = KIND_GLYPH[v.kind] || Sparkles;
+  const tint = KIND_TINT[v.kind] || KIND_TINT.markdown;
 
   return (
-    <aside className={`${wrapper} flex flex-col border-l border-border bg-background/60 backdrop-blur`}>
-      <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="grid h-7 w-7 shrink-0 place-items-center rounded bg-primary/10 text-primary">
-            <Code2 className="h-3.5 w-3.5" />
+    <aside className={cn("flex flex-col glass border-l border-l-border-strong/50", wrapper)}>
+      {/* Top row: title + actions */}
+      <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 pb-2.5 pt-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className={cn(
+              "grid h-10 w-10 shrink-0 place-items-center rounded-xl ring-1",
+              tint.bg,
+              tint.text,
+              tint.ring,
+            )}
+          >
+            <KindIcon className="h-[18px] w-[18px]" />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">{v.title}</div>
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+            <div className="truncate text-[14.5px] font-semibold tracking-tight">
+              {v.title}
+            </div>
+            <div className="mt-0.5 flex items-center gap-2 font-mono text-[10.5px] uppercase tracking-wide text-fg-dim">
               <span>{v.kind}</span>
+              <span>·</span>
+              <span>{v.code.length.toLocaleString()} chars</span>
               {versionCount > 1 && (
                 <>
                   <span>·</span>
-                  <span className="inline-flex items-center gap-1 normal-case tracking-normal">
-                    <History className="h-3 w-3" /> v{v.version} of {versionCount}
+                  <span className="inline-flex items-center gap-1 text-primary/90">
+                    v{v.version}/{versionCount}
                   </span>
                 </>
               )}
@@ -178,54 +203,24 @@ export function ArtifactPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-0.5">
           {versionCount > 1 && (
-            <div className="mr-1 flex items-center rounded-md border border-border bg-secondary/40">
-              <button
-                disabled={currentIdx === 0}
-                onClick={() => goVersion(-1)}
-                className="rounded-l px-1.5 py-1 text-muted-foreground hover:bg-secondary disabled:opacity-30"
-                title="previous version"
-              >
-                <ChevronLeft className="h-3 w-3" />
-              </button>
-              <span className="px-1 text-[10px] font-medium text-muted-foreground">
+            <div className="mr-1 flex items-center rounded-lg border border-border-subtle bg-surface-2/70">
+              <IconBtn title="Previous version" onClick={() => goVersion(-1)} disabled={currentIdx === 0}>
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </IconBtn>
+              <span className="min-w-[2rem] px-1 text-center font-mono text-[10.5px] text-fg-muted">
                 v{v.version}
               </span>
-              <button
-                disabled={currentIdx === versionCount - 1}
+              <IconBtn
+                title="Next version"
                 onClick={() => goVersion(+1)}
-                className="rounded-r px-1.5 py-1 text-muted-foreground hover:bg-secondary disabled:opacity-30"
-                title="next version"
+                disabled={currentIdx === versionCount - 1}
               >
-                <ChevronRight className="h-3 w-3" />
-              </button>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </IconBtn>
             </div>
           )}
-          <div className="flex overflow-hidden rounded-md border border-border">
-            <button
-              onClick={() => setTab("view")}
-              className={
-                "flex items-center gap-1 px-2.5 py-1 text-xs " +
-                (tab === "view"
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:bg-secondary/50")
-              }
-            >
-              <Eye className="h-3 w-3" /> View
-            </button>
-            <button
-              onClick={() => setTab("code")}
-              className={
-                "flex items-center gap-1 px-2.5 py-1 text-xs " +
-                (tab === "code"
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:bg-secondary/50")
-              }
-            >
-              <Code2 className="h-3 w-3" /> Code
-            </button>
-          </div>
           <IconBtn
             title="Reload"
             onClick={() => {
@@ -244,7 +239,11 @@ export function ArtifactPanel({
               setTimeout(() => setCopied(false), 1200);
             }}
           >
-            {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-400" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
           </IconBtn>
           <IconBtn title="Download as HTML" onClick={downloadStandalone}>
             <Download className="h-3.5 w-3.5" />
@@ -256,64 +255,160 @@ export function ArtifactPanel({
             title={fullscreen ? "Exit full screen" : "Full screen"}
             onClick={() => setFullscreen((f) => !f)}
           >
-            {fullscreen ? (
-              <Minimize2 className="h-3.5 w-3.5" />
-            ) : (
-              <Maximize2 className="h-3.5 w-3.5" />
-            )}
+            {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </IconBtn>
           <IconBtn title="Close" onClick={onClose}>
             <X className="h-3.5 w-3.5" />
           </IconBtn>
         </div>
-      </header>
+      </div>
 
-      {v.note && versionCount > 1 && (
-        <div className="border-b border-border bg-secondary/20 px-3 py-1.5 text-[11px] text-muted-foreground">
-          <span className="font-medium text-foreground/80">v{v.version} —</span>{" "}
-          {v.note}
-        </div>
-      )}
+      {/* Tab row: segmented control */}
+      <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-2">
+        <SegmentedTabs tab={tab} onChange={setTab} />
+        {v.note && versionCount > 1 && (
+          <div className="truncate font-mono text-[10.5px] text-fg-dim">
+            <span className="text-fg-muted">v{v.version} —</span> {v.note}
+          </div>
+        )}
+      </div>
 
+      {/* Body */}
       <div className="relative flex-1 overflow-hidden">
-        <div className={tab === "view" ? "absolute inset-0" : "absolute inset-0 hidden"}>
-          {!ready && (
-            <div className="absolute inset-0 grid place-items-center text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-2">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                rendering artifact…
-              </span>
-            </div>
-          )}
-          <iframe
-            key={`${v.id}-${reloadKey}`}
-            ref={iframeRef}
-            src="/artifact-runner.html"
-            sandbox="allow-scripts"
-            className="h-full w-full bg-transparent"
-            title={v.title}
-          />
-          {err && (
-            <div className="absolute bottom-2 left-2 right-2 space-y-1.5">
-              {autoFixing && (
-                <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-200 animate-fade-in">
-                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400" />
-                  auto-fixing — asked Claude to regenerate as a new version
-                </div>
-              )}
-              <div className="max-h-32 overflow-auto rounded-md border border-destructive/40 bg-destructive/10 p-2 font-mono text-[11px] text-red-300">
-                {err}
+        <div className={tab === "view" ? "absolute inset-0 p-3" : "absolute inset-0 hidden"}>
+          <div className="relative h-full overflow-hidden rounded-xl border border-border-subtle bg-background shadow-soft">
+            {!ready && (
+              <div className="absolute inset-0 grid place-items-center bg-surface-1/50">
+                <motion.div
+                  animate={{ opacity: [0.6, 1, 0.6], scale: [1, 1.05, 1] }}
+                  transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                  className={cn("grid h-12 w-12 place-items-center rounded-xl", tint.bg, tint.text)}
+                >
+                  <KindIcon className="h-5 w-5" />
+                </motion.div>
+                <span className="absolute bottom-6 font-mono text-[11px] text-fg-dim">
+                  rendering artifact…
+                </span>
               </div>
-            </div>
-          )}
+            )}
+            <iframe
+              key={`${v.id}-${reloadKey}`}
+              ref={iframeRef}
+              src="/artifact-runner.html"
+              sandbox="allow-scripts"
+              className="h-full w-full bg-transparent"
+              title={v.title}
+            />
+          </div>
+          <AnimatePresence>
+            {err && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                className="absolute bottom-4 left-4 right-4 space-y-1.5"
+              >
+                {autoFixing && (
+                  <div className="flex items-center gap-2 overflow-hidden rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11.5px] text-amber-200 shimmer-diagonal">
+                    <span className="relative inline-flex h-1.5 w-1.5">
+                      <span className="absolute inset-0 animate-ping rounded-full bg-amber-400/60" />
+                      <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
+                    </span>
+                    <span>
+                      <span className="font-medium">Auto-fixing</span> — asking
+                      Claude for a corrected version
+                    </span>
+                  </div>
+                )}
+                <details className="group overflow-hidden rounded-xl border border-destructive/40 bg-destructive/10">
+                  <summary className="flex cursor-pointer items-center gap-2 px-3 py-2 text-[11.5px] text-red-200">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span className="font-medium">Render error</span>
+                    <span className="truncate text-red-300/80">{err.split("\n")[0]}</span>
+                  </summary>
+                  <pre className="max-h-44 overflow-auto border-t border-destructive/30 bg-background/40 px-3 py-2 font-mono text-[10.5px] leading-relaxed text-red-300/90 scrollbar-thin">
+                    {err}
+                  </pre>
+                </details>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+
         <div className={tab === "code" ? "absolute inset-0 overflow-auto scrollbar-thin" : "hidden"}>
-          <pre className="whitespace-pre-wrap p-3 font-mono text-[12px] leading-relaxed">
+          <pre className="whitespace-pre-wrap px-4 py-3 font-mono text-[12px] leading-relaxed text-fg-muted">
             {v.code}
           </pre>
         </div>
       </div>
+
+      {/* Version rail */}
+      {versionCount > 1 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto border-t border-border-subtle bg-surface-1/60 px-3 py-2 scrollbar-thin">
+          <span className="shrink-0 font-mono text-[9.5px] uppercase tracking-wider text-fg-dim">
+            history
+          </span>
+          <div className="flex gap-1">
+            {artifact.versions.map((ver) => (
+              <button
+                key={ver.id}
+                onClick={() => onPickVersion(artifact.group_id, ver.version)}
+                className={cn(
+                  "shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] transition-all",
+                  ver.version === v.version
+                    ? "border-primary/60 bg-primary/15 text-primary shadow-[0_0_10px_hsl(var(--brand-glow))]"
+                    : "border-border-subtle text-fg-dim hover:border-primary/40 hover:text-fg",
+                )}
+                title={ver.note || `version ${ver.version}`}
+              >
+                v{ver.version}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </aside>
+  );
+}
+
+function SegmentedTabs({
+  tab,
+  onChange,
+}: {
+  tab: Tab;
+  onChange: (t: Tab) => void;
+}) {
+  return (
+    <div className="relative flex items-center gap-0 rounded-full border border-border-subtle bg-surface-1/80 p-0.5">
+      {(["view", "code"] as const).map((t) => {
+        const active = tab === t;
+        const Icon = t === "view" ? Eye : Code2;
+        return (
+          <button
+            key={t}
+            onClick={() => onChange(t)}
+            className="relative inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-medium transition-colors"
+          >
+            {active && (
+              <motion.span
+                layoutId="tab-pill"
+                transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                className="absolute inset-0 rounded-full bg-primary/90 shadow-brand"
+              />
+            )}
+            <span
+              className={cn(
+                "relative inline-flex items-center gap-1.5",
+                active ? "text-primary-foreground" : "text-fg-muted",
+              )}
+            >
+              <Icon className="h-3 w-3" />
+              {t === "view" ? "View" : "Code"}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -321,16 +416,20 @@ function IconBtn({
   children,
   onClick,
   title,
+  disabled,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   title: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       title={title}
-      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+      aria-label={title}
+      disabled={disabled}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-fg-dim transition-all hover:bg-surface-3/70 hover:text-fg active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30"
     >
       {children}
     </button>
@@ -347,8 +446,6 @@ function slugify(s: string): string {
   );
 }
 
-/** Build a self-contained HTML file the user can open offline. Uses the same
- *  esm.sh import map and sucrase pipeline as the in-app runner. */
 function buildStandaloneHtml(v: ArtifactVersion): string {
   const escape = (s: string) =>
     s.replace(/<\/script>/gi, "<\\/script>").replace(/<!--/g, "<\\!--");

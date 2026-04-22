@@ -1,5 +1,14 @@
 "use client";
-import { Sparkles, Loader2, Code2, Workflow, Shapes, FileCode, FileText } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  Sparkles,
+  Loader2,
+  Code2,
+  Workflow,
+  Shapes,
+  FileCode,
+  FileText,
+} from "lucide-react";
 import type { ToolChip } from "@/lib/client/chat-types";
 
 const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -27,31 +36,47 @@ export function PendingArtifactCard({ chip }: { chip: ToolChip }) {
   const kindLabel = KIND_LABEL[kind] || "Artifact";
 
   return (
-    <div className="group w-full max-w-md overflow-hidden rounded-xl border border-primary/30 bg-primary/5 animate-fade-in">
-      <div className="flex items-stretch gap-3 p-2.5">
-        <div className="relative grid h-16 w-20 shrink-0 place-items-center overflow-hidden rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 text-primary">
-          <div className="absolute inset-0 shimmer opacity-30" aria-hidden />
-          <Icon className="relative h-5 w-5 opacity-90" />
+    <motion.div
+      initial={{ opacity: 0, y: 6, scale: 0.99 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.2 }}
+      className="relative w-full max-w-md overflow-hidden rounded-2xl border border-primary/30 bg-surface-1/70 shimmer-diagonal"
+    >
+      {/* Preview placeholder */}
+      <div className="relative h-28 w-full overflow-hidden border-b border-border-subtle bg-gradient-to-br from-primary/15 via-primary/5 to-transparent">
+        <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border border-primary/40 bg-background/70 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wide text-primary backdrop-blur">
+          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+          generating
+        </div>
+        <div className="absolute inset-0 grid place-items-center">
+          <motion.div
+            animate={{ scale: [1, 1.1, 1], opacity: [0.7, 1, 0.7] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            className="text-primary/85"
+          >
+            <Icon className="h-8 w-8" />
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex items-start gap-3 px-3 py-2.5">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20">
+          <Sparkles className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <Loader2 className="h-3 w-3 animate-spin text-primary" />
-            <span className="text-sm font-medium">
-              {title || `Generating ${kindLabel.toLowerCase()}…`}
-            </span>
+          <div className="truncate text-[13.5px] font-medium text-fg">
+            {title || `Drafting ${kindLabel.toLowerCase()}…`}
           </div>
-          <div className="mt-0.5 text-[11px] text-muted-foreground">
-            {kind
-              ? `Streaming ${kindLabel.toLowerCase()} — renders as soon as the code finishes.`
-              : "Claude is choosing an artifact type…"}
+          <div className="mt-0.5 font-mono text-[10.5px] text-fg-dim">
+            {kind ? `streaming ${kindLabel.toLowerCase()}…` : "picking an artifact type…"}
           </div>
-          <div className="mt-2 space-y-1">
-            <div className="h-1.5 w-4/5 shimmer rounded" aria-hidden />
-            <div className="h-1.5 w-3/5 shimmer rounded" aria-hidden />
-            <div className="h-1.5 w-2/3 shimmer rounded" aria-hidden />
+          <div className="mt-2 space-y-1.5">
+            <div className="h-1.5 w-4/5 rounded-full bg-surface-3/80 shimmer" aria-hidden />
+            <div className="h-1.5 w-3/5 rounded-full bg-surface-3/80 shimmer" aria-hidden />
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -4,79 +4,79 @@
   "page_count": 48,
   "sections": [
     {
-      "title": "Cover, Contents & Safety Warnings",
+      "title": "Cover & Table of Contents",
       "pages": [
         1,
+        1
+      ]
+    },
+    {
+      "title": "Safety Instructions",
+      "pages": [
+        2,
         6
       ]
     },
     {
-      "title": "Specifications & Controls",
+      "title": "Specifications",
       "pages": [
         7,
+        7
+      ]
+    },
+    {
+      "title": "Controls & Components",
+      "pages": [
+        8,
         9
       ]
     },
     {
-      "title": "MIG/Flux-Cored Wire Setup",
+      "title": "MIG / Flux-Cored Wire Setup",
       "pages": [
         10,
         17
       ]
     },
     {
-      "title": "MIG/Flux-Cored Wire Operation",
+      "title": "Basic Wire Welding Operation",
       "pages": [
         18,
         23
       ]
     },
     {
-      "title": "TIG Setup & Operation",
+      "title": "TIG & Stick Setup",
       "pages": [
         24,
-        31
+        27
       ]
     },
     {
-      "title": "Stick Setup & Operation",
+      "title": "Basic TIG / Stick Welding Operation",
       "pages": [
-        27,
+        28,
         33
       ]
     },
     {
-      "title": "Weld Quality & Troubleshooting Tips",
+      "title": "Welding Tips & Weld Diagnosis",
       "pages": [
         34,
         40
       ]
     },
     {
-      "title": "Maintenance Procedures",
+      "title": "Maintenance & Troubleshooting",
       "pages": [
         41,
-        41
-      ]
-    },
-    {
-      "title": "Troubleshooting Tables",
-      "pages": [
-        42,
         44
       ]
     },
     {
-      "title": "Wiring Schematic",
+      "title": "Wiring Schematic & Parts Diagram",
       "pages": [
         45,
-        45
-      ]
-    },
-    {
-      "title": "Parts List & Diagrams",
-      "pages": [
-        46,
         47
       ]
     },
@@ -89,9 +89,9 @@
     }
   ],
   "suggested_prompts": [
-    "What polarity do I use for MIG welding solid core wire versus flux-cored wire?",
-    "How do I adjust the feed roller and tension for 0.030 inch wire?",
-    "What does porosity in my stick weld look like and how do I fix it?",
-    "What duty cycle can I run at 240V when TIG welding at 150 amps?"
+    "Show me the front panel controls and explain what each knob and button does.",
+    "What polarity should I use for flux-cored vs. solid-wire MIG vs. stick welding?",
+    "My MIG weld has porosity and excessive spatter — what's likely wrong and how do I fix it?",
+    "How long can I weld at 200 amps on 240V before the duty cycle trips, and how do I calculate safe run times?"
   ]
 }

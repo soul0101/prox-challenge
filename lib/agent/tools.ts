@@ -9,6 +9,7 @@ import { paths } from "@/lib/kb/paths";
 import { hitsFromResults } from "@/lib/kb/search";
 import { cropPage } from "@/lib/kb/crop";
 import { locateRegion } from "@/lib/kb/vision";
+import { generateArtifact, type ArtifactKind } from "./artifact";
 
 import type { AgentEventBus } from "./events";
 
@@ -272,34 +273,43 @@ export function buildMcpServer(bus: AgentEventBus) {
 
       tool(
         "emit_artifact",
-        `Ship an interactive artifact to the END USER's artifact panel. Use this when a drawing, flowchart, or interactive calculator is clearer than words.
+        `Ship an interactive artifact to the user's artifact panel. Use this when a diagram, flowchart, or interactive calculator is clearer than prose.
 
-Kinds:
-- "svg": raw inline SVG. Best for schematics, socket maps, static diagrams. Just the <svg>…</svg>.
-- "mermaid": a Mermaid diagram (flowchart/sequence/stateDiagram). Just the mermaid source, no fences.
-- "html": a standalone HTML fragment (may include <style> and <script>). Runs in a sandboxed iframe; no network. Good for calculators, steppers, form wizards.
-- "react": a React component written in TSX. \`export default function Component(){...}\`. Globals available: React, hooks, recharts (import from "recharts"), lucide-react icons. Tailwind classes work.
-- "markdown": long-form markdown — use sparingly; prefer react/html for interactivity.
+HOW THIS TOOL WORKS — READ CAREFULLY
+You do NOT write the artifact code yourself. You write a detailed SPEC, and a dedicated artifact-authoring model (Opus) turns it into a production-quality implementation. Your job is to describe WHAT to build, with every concrete number and citation from the manual. The author's job is to produce clean, polished code.
 
-Pick the SIMPLEST kind that communicates the idea. Always include concrete numbers/citations pulled from the manual, never invented.
+Kinds (pick the simplest that communicates the idea):
+- "svg": inline SVG. Best for schematics, socket maps, labelled static diagrams.
+- "mermaid": Mermaid flowchart/state-diagram. Best for decision trees, troubleshooting flows.
+- "html": standalone sandboxed HTML. Use only when React is overkill (trivial static layouts).
+- "react": React/TSX in a sandboxed iframe. Hooks + recharts + lucide-react + Tailwind preloaded. Best for calculators, configurators, interactive steppers, charts.
+- "markdown": long-form markdown. Use sparingly — prefer react for anything interactive.
 
-VERSIONING: when you are revising or improving a previously emitted artifact (user asked you to tweak it, fix a bug, add a feature), pass the SAME \`group_id\` as the original — the UI will stack the new code as a version (v2, v3…) under the existing card so the user can switch between them. Use a fresh group_id when emitting a brand-new artifact unrelated to any prior one. Use a stable, slug-like group_id (e.g. "duty-cycle-calc", "porosity-tree").
+WHAT A GREAT SPEC LOOKS LIKE
+Write the spec as if briefing a skilled designer who has never seen the manual. Include:
+1. **Purpose** — in one sentence, what the user is trying to do / decide.
+2. **Shape** — the components/layout: "a slider for amperage (50–200 A), a slider for duty cycle (20–60%), a result panel showing weld time" etc.
+3. **Exact data from the manual** — list every number, threshold, option, part name, page citation that must appear. e.g. "At 200 A / 60% duty cycle the chart shows 6 min on, 4 min off (p.34). Options are DCEP, DCEN, AC (p.17)."
+4. **Interaction** — what happens when the user adjusts each control, what's computed, how branches work for flowcharts.
+5. **Citations** — which manual pages to reference in the UI footer or inline chips.
+6. **Tone / constraints** — any safety warnings to surface, any ranges that must clamp.
 
-CODE QUALITY — your artifact code is run inside a sandboxed iframe via \`sucrase\` (TSX → JS) and rendered with React 18. Sucrase is fast but unforgiving — broken syntax fails immediately. Common pitfalls that cause render failures, AVOID THEM:
-1. **Apostrophes in single-quoted strings.** \`'it's broken'\` is a syntax error. Use double quotes for any string containing an apostrophe: \`"it's fine"\`, or escape: \`'it\\'s fine'\`. Same applies to JSX attribute values.
-2. **JSX self-closing tags** must end with \`/>\`. \`<Icon className="x">\` is wrong — write \`<Icon className="x" />\`. Components without children MUST self-close.
-3. **Every opened tag needs a matching close.** \`<div>\` requires \`</div>\`, \`<ul>\` requires \`</ul>\`. Read your code top-to-bottom and verify the tag stack balances.
-4. **No truncated identifiers.** Check that variable / object key names are spelled the SAME in every reference. \`description\` ≠ \`deription\`, \`ventilation\` ≠ \`ntilation\`. A single typo crashes the whole artifact.
-5. **Numbers and units must be complete inside JSX text.** \`<strong>25% @ 200 A</strong> = 2.5 minutes\` — don't drop the \`= 2\`.
-6. **No raw \`<\` or \`{\` in JSX text** — escape with \`{"<"}\` / \`{"{"}\` if needed.
-7. **Default export required** for "react" kind: \`export default function Component() { … }\`.
-8. **Re-read your code one more time before submitting** — most failures are typos that a careful pass would catch.
+A weak spec says "a duty cycle calculator". A strong spec lists the exact amperage range, the exact duty-cycle formula, the exact page numbers, and what the output should read.
 
-If a previous emission failed, the user (or the auto-fix system) will send you a message containing the error. Read it, identify the specific syntax issue, and re-emit using the same group_id with a fully corrected version.`,
+VERSIONING
+If you are revising an existing artifact (user asked you to tweak it, add a feature, fix a visual bug), pass the SAME \`group_id\` — the UI stacks the new version as v2/v3 under the existing card. Use a fresh stable slug ("duty-cycle-calc", "porosity-tree") for brand-new artifacts.
+
+AUTO-FIX FLOW
+If a prior artifact failed to render (you'll receive an error message), call emit_artifact AGAIN with the same group_id and pass the error verbatim as \`error_context\`. The author will diagnose and fix. You don't need to guess the syntax fix — just relay the error and restate the spec.`,
         {
           kind: z.enum(["react", "html", "svg", "mermaid", "markdown"]),
-          title: z.string().describe("Short user-facing title"),
-          code: z.string().describe("The artifact source (no markdown fences)"),
+          title: z.string().describe("Short user-facing title shown on the artifact card."),
+          spec: z
+            .string()
+            .min(40)
+            .describe(
+              "Detailed brief for the artifact author. MUST include concrete numbers, options, and page citations pulled from the manual. Not the code — the brief for someone who will write the code.",
+            ),
           group_id: z
             .string()
             .optional()
@@ -309,24 +319,50 @@ If a previous emission failed, the user (or the auto-fix system) will send you a
           version_note: z
             .string()
             .optional()
-            .describe("Optional one-line note describing what changed in this version"),
+            .describe("One-line note describing what changed in this version."),
+          error_context: z
+            .string()
+            .optional()
+            .describe(
+              "If this is an auto-fix retry, paste the render error from the prior version verbatim so the author can diagnose the syntax issue.",
+            ),
         },
-        async ({ kind, title, code, group_id, version_note }): Promise<CallToolResult> => {
-          const id = crypto.randomBytes(6).toString("hex");
-          bus.emit({
-            type: "artifact",
-            id,
-            kind,
-            title,
-            code,
-            group_id,
-            version_note,
-          });
-          return textContent(
-            `Rendered ${kind} artifact "${title}" (${code.length} chars) to the user's artifact panel${
-              group_id ? ` (group ${group_id})` : ""
-            }.`,
-          );
+        async ({
+          kind,
+          title,
+          spec,
+          group_id,
+          version_note,
+          error_context,
+        }): Promise<CallToolResult> => {
+          try {
+            const code = await generateArtifact({
+              kind: kind as ArtifactKind,
+              title,
+              spec,
+              errorContext: error_context,
+            });
+            const id = crypto.randomBytes(6).toString("hex");
+            bus.emit({
+              type: "artifact",
+              id,
+              kind,
+              title,
+              code,
+              group_id,
+              version_note,
+            });
+            return textContent(
+              `Authored ${kind} artifact "${title}" (${code.length} chars) and rendered to the user's artifact panel${
+                group_id ? ` (group ${group_id})` : ""
+              }. Do not repeat the artifact contents in your message — just briefly tell the user it's ready in the panel.`,
+            );
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return textContent(
+              `error: artifact author failed — ${msg}. You may retry with a tighter spec, or answer in prose.`,
+            );
+          }
         },
       ),
 

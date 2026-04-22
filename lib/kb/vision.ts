@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { Figure, PageRecord, Table } from "./types";
-import { ingestModel } from "@/lib/agent/models";
+import { modelFor, type ModelRole } from "@/lib/agent/models";
 import { collectText, extractJson, runQuery } from "@/lib/agent/sdk-query";
 
 /**
@@ -96,7 +96,7 @@ After reading the image, output the JSON record per the system instructions. ONL
   const stream = runQuery({
     prompt,
     options: {
-      model: ingestModel(),
+      model: modelFor("ingest.page"),
       systemPrompt: PAGE_SYSTEM,
       allowedTools: ["Read"],
       tools: ["Read"],
@@ -154,7 +154,7 @@ Output JSON only — no markdown, no commentary.`;
   const stream = runQuery({
     prompt,
     options: {
-      model: ingestModel(),
+      model: modelFor("ingest.docmap"),
       systemPrompt:
         "You consolidate raw per-page summaries into a navigable outline of a technical document. Output STRICT JSON only, no prose.",
       allowedTools: [],
@@ -189,6 +189,7 @@ Output JSON only — no markdown, no commentary.`;
 export async function locateRegion(args: {
   pngPath: string;
   description: string;
+  role?: ModelRole;
 }): Promise<{ bbox: [number, number, number, number]; reason: string } | null> {
   const absPath = path.resolve(args.pngPath);
 
@@ -204,7 +205,7 @@ Where coords are normalised floats 0..1 with (0,0) = top-left. Pad bboxes by ~2%
   const stream = runQuery({
     prompt,
     options: {
-      model: ingestModel(),
+      model: modelFor(args.role ?? "qa.locate"),
       systemPrompt:
         "You locate regions in technical-manual page images. Output STRICT JSON only.",
       allowedTools: ["Read"],

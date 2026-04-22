@@ -4,7 +4,49 @@
   "page_count": 1,
   "sections": [
     {
-      "title": "Welder Selection Chart",
+      "title": "Skill Level & Experience",
+      "pages": [
+        1,
+        1
+      ]
+    },
+    {
+      "title": "Shielding Gas Requirements",
+      "pages": [
+        1,
+        1
+      ]
+    },
+    {
+      "title": "Material Type Selection",
+      "pages": [
+        1,
+        1
+      ]
+    },
+    {
+      "title": "Material Thickness Guide",
+      "pages": [
+        1,
+        1
+      ]
+    },
+    {
+      "title": "Typical Applications",
+      "pages": [
+        1,
+        1
+      ]
+    },
+    {
+      "title": "Weld Cleanliness & Finish",
+      "pages": [
+        1,
+        1
+      ]
+    },
+    {
+      "title": "Recommended Welder Processes",
       "pages": [
         1,
         1
@@ -12,9 +54,9 @@
     }
   ],
   "suggested_prompts": [
-    "What welding process should I use for my material thickness?",
-    "How do I determine the right amperage range for my welding job?",
-    "What factors should I consider when selecting between MIG, TIG, and Stick welding?",
-    "What duty cycle do I need for my welding application?"
+    "Which welder should I choose for welding 1/8\" aluminum as a beginner?",
+    "What's the difference between MIG, TIG, Stick, and Flux-Core for my project?",
+    "Do I need shielding gas for welding outdoors on a farm repair?",
+    "Walk me through the selection chart to pick the right welder for auto body work."
   ]
 }

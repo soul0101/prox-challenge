@@ -1,4 +1,5 @@
 "use client";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Loader2,
   Check,
@@ -15,6 +16,7 @@ import {
   FileCode,
 } from "lucide-react";
 import type { ToolChip } from "@/lib/client/chat-types";
+import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   "mcp__manual__search": Search,
@@ -54,7 +56,10 @@ const KIND_LABEL: Record<string, string> = {
   markdown: "markdown",
 };
 
-function chipLabel(chip: ToolChip): { label: string; Icon: React.ComponentType<{ className?: string }> } {
+function chipLabel(chip: ToolChip): {
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+} {
   const baseIcon = ICONS[chip.name] || Sparkles;
   const baseLabel = LABEL[chip.name] || chip.name.replace(/^mcp__manual__/, "");
   if (chip.name.endsWith("emit_artifact")) {
@@ -73,10 +78,13 @@ function detail(chip: ToolChip): string | null {
   const i = chip.input || {};
   if (chip.name.endsWith("search")) return (i.query as string)?.slice(0, 60) || null;
   if (chip.name.endsWith("open_page")) return i.page ? `p.${i.page}` : null;
-  if (chip.name.endsWith("open_pages")) return i.from && i.to ? `p.${i.from}–${i.to}` : null;
-  if (chip.name.endsWith("crop_region")) return (i.description as string)?.slice(0, 40) || null;
+  if (chip.name.endsWith("open_pages"))
+    return i.from && i.to ? `p.${i.from}–${i.to}` : null;
+  if (chip.name.endsWith("crop_region"))
+    return (i.description as string)?.slice(0, 40) || null;
   if (chip.name.endsWith("show_source")) return i.page ? `p.${i.page}` : null;
-  if (chip.name.endsWith("emit_artifact")) return (i.title as string)?.slice(0, 40) || null;
+  if (chip.name.endsWith("emit_artifact"))
+    return (i.title as string)?.slice(0, 40) || null;
   if (chip.name.endsWith("ask_user")) return "clarifying question";
   return null;
 }
@@ -84,43 +92,66 @@ function detail(chip: ToolChip): string | null {
 export function ToolChipRow({ chips }: { chips: ToolChip[] }) {
   if (!chips.length) return null;
   return (
-    <div className="mt-1 mb-2 flex flex-wrap gap-1.5">
-      {chips.map((c) => {
-        const { label, Icon } = chipLabel(c);
-        const d = detail(c);
-        const isArtifact = c.name.endsWith("emit_artifact");
-        return (
-          <span
-            key={c.id}
-            className={
-              "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] animate-fade-in " +
-              (isArtifact && c.status === "running"
-                ? "border-primary/40 bg-primary/10 text-primary-foreground/90"
-                : "border-border bg-secondary/60 text-secondary-foreground")
-            }
-          >
-            <Icon
-              className={
-                "h-3 w-3 " +
-                (isArtifact && c.status === "running"
-                  ? "text-primary"
-                  : "text-muted-foreground")
-              }
-            />
-            <span className="font-medium">{label}</span>
-            {d && (
-              <span className="max-w-[220px] truncate text-muted-foreground">
-                · {d}
+    <div className="mb-2 flex flex-wrap gap-1.5">
+      <AnimatePresence initial={false}>
+        {chips.map((c) => {
+          const { label, Icon } = chipLabel(c);
+          const d = detail(c);
+          const isArtifact = c.name.endsWith("emit_artifact");
+          const running = c.status === "running";
+          return (
+            <motion.span
+              key={c.id}
+              layout
+              initial={{ opacity: 0, scale: 0.9, y: 4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className={cn(
+                "relative inline-flex items-center gap-1.5 overflow-hidden rounded-full border px-2.5 py-0.5 text-[11px]",
+                running && isArtifact
+                  ? "border-primary/40 bg-primary/10"
+                  : running
+                    ? "border-border-subtle bg-surface-2/80"
+                    : "border-border-subtle bg-surface-1/70",
+              )}
+              title={d ? `${label} · ${d}` : label}
+            >
+              {running && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 left-0 w-0.5 bg-primary/80"
+                />
+              )}
+              <Icon
+                className={cn(
+                  "h-3 w-3",
+                  running
+                    ? isArtifact
+                      ? "text-primary"
+                      : "text-fg-muted"
+                    : "text-fg-dim",
+                )}
+              />
+              <span className={cn("font-medium", running ? "text-fg" : "text-fg-muted")}>
+                {label}
               </span>
-            )}
-            {c.status === "running" ? (
-              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-            ) : (
-              <Check className="h-3 w-3 text-emerald-400" />
-            )}
-          </span>
-        );
-      })}
+              {d && (
+                <span className="max-w-[220px] truncate font-mono text-fg-dim">
+                  · {d}
+                </span>
+              )}
+              {running ? (
+                <Loader2 className="h-3 w-3 animate-spin text-fg-dim" />
+              ) : (
+                <span className="relative inline-flex">
+                  <Check className="h-3 w-3 text-emerald-400" />
+                </span>
+              )}
+            </motion.span>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }

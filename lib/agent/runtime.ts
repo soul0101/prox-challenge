@@ -1,5 +1,5 @@
 import { loadKB } from "@/lib/kb/load";
-import { runtimeModel } from "./models";
+import { modelFor } from "./models";
 import { runQuery } from "./sdk-query";
 import { AgentEventBus, type AgentEvent } from "./events";
 import { allowedToolNames, buildMcpServer } from "./tools";
@@ -112,7 +112,7 @@ export async function* runAgent(args: {
       const stream = runQuery({
         prompt,
         options: {
-          model: runtimeModel(),
+          model: modelFor("qa.orchestrator"),
           systemPrompt: buildSystemPrompt(manifest),
           mcpServers: { manual: mcp },
           allowedTools: allowedToolNames(),

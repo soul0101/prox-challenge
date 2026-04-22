@@ -1,11 +1,17 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ChatPanel, type ChatPanelHandle } from "@/components/chat/ChatPanel";
 import { ArtifactPanel } from "@/components/artifact/Panel";
 import { SourceViewer } from "@/components/source/Viewer";
 import { LibraryDrawer } from "@/components/library/Drawer";
+import { AppShell } from "@/components/shell/AppShell";
+import { LogoMark } from "@/components/ui/LogoMark";
+import { FileText, Sparkles } from "lucide-react";
 import type { Manifest } from "@/lib/kb/types";
 import type { ArtifactAttachment, SourceAttachment } from "@/lib/client/chat-types";
+import { ease } from "@/lib/ui/motion";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
   const [manifest, setManifest] = useState<Manifest | null>(null);
@@ -22,6 +28,11 @@ export default function Home() {
   >(null);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  /** Which right-panel the user last interacted with. Decides precedence when
+   *  both an artifact and a source happen to be active at the same time. */
+  const [rightPreference, setRightPreference] = useState<"artifact" | "source">(
+    "artifact",
+  );
 
   const chatRef = useRef<ChatPanelHandle>(null);
   // Track which (group_id, version) pairs we've already auto-fixed, so a
@@ -35,27 +46,13 @@ export default function Home() {
       if (attempts >= 2) return; // give up — user can intervene manually
       fixAttempts.current.set(groupId, attempts + 1);
 
-      const codeExcerpt = code.length > 1500 ? code.slice(0, 1500) + "\n…[truncated]" : code;
-      const msg = `[auto-fix request] The artifact you just emitted (group_id="${groupId}", v${version}) failed to render in the sandbox with this error:
+      const msg = `[auto-fix request] The artifact (group_id="${groupId}", v${version}) failed to render with this error:
 
 \`\`\`
 ${errorMsg}
 \`\`\`
 
-Please call \`emit_artifact\` AGAIN with the SAME \`group_id="${groupId}"\` so the UI stacks it as v${version + 1} of the same card. Common pitfalls that cause sucrase/JSX failures:
-- Apostrophes inside single-quoted JS strings (use double quotes, or escape with \\').
-- Unescaped curly braces or angle brackets inside JSX text.
-- Missing closing tags like </div>, </ul>, </span>.
-- Truncated identifiers / dropped characters in symbol names (e.g. "ntilation" instead of "ventilation").
-- JSX elements missing the self-closing slash (e.g. <Icon /> not <Icon>).
-
-For reference, the failing source was:
-
-\`\`\`tsx
-${codeExcerpt}
-\`\`\`
-
-Re-emit a corrected, complete artifact. Validate every JSX tag has a matching close, every string is properly quoted, and every identifier is spelled consistently.`;
+Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stacks as v${version + 1}. Pass the error above verbatim as the \`error_context\` argument, and restate the spec (you can reuse the prior spec or refine it). The artifact author will diagnose the syntax issue and produce a corrected version — you don't need to fix the code yourself.`;
 
       chatRef.current?.submit(msg);
     },
@@ -77,11 +74,13 @@ Re-emit a corrected, complete artifact. Validate every JSX tag has a matching cl
     setSourcePage(page);
     setSourceBbox(attach?.bbox || null);
     setSourceOpen(true);
+    setRightPreference("source");
   }, []);
 
   const openArtifact = useCallback((groupId: string, version?: number) => {
     setActiveGroupId(groupId);
     setActiveVersion(version ?? null);
+    setRightPreference("artifact");
   }, []);
 
   const onArtifactEvent = useCallback(
@@ -142,6 +141,7 @@ Re-emit a corrected, complete artifact. Validate every JSX tag has a matching cl
       // Auto-open the latest version.
       setActiveGroupId(groupId);
       setActiveVersion(null);
+      setRightPreference("artifact");
       callback?.(groupId);
     },
     [],
@@ -149,8 +149,20 @@ Re-emit a corrected, complete artifact. Validate every JSX tag has a matching cl
 
   if (!manifest) {
     return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
-        Loading knowledge base…
+      <div className="flex h-screen items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0, transition: { duration: 0.4, ease: ease.smooth } }}
+          className="flex flex-col items-center gap-3"
+        >
+          <LogoMark size={48} animated />
+          <div className="flex items-center gap-1.5 font-mono text-xs tracking-wide text-fg-dim">
+            <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-primary" />
+            <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-primary" style={{ animationDelay: "120ms" }} />
+            <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-primary" style={{ animationDelay: "240ms" }} />
+            <span className="ml-2">waking up the knowledge base…</span>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -170,67 +182,175 @@ Re-emit a corrected, complete artifact. Validate every JSX tag has a matching cl
   const showArtifact = !!activeArtifactWithVersion;
   const showSource = sourceOpen && sourceDoc !== null && sourcePage !== null;
 
-  return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      <div className="flex flex-1 min-w-0 flex-col">
-        {manifest.documents.length === 0 && (
-          <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-red-200">
-            No documents ingested. {loadError && `Error: ${loadError}. `}
-            Drop PDFs into <code className="rounded bg-secondary px-1">files/</code> and run{" "}
-            <code className="rounded bg-secondary px-1">npm run ingest</code>.
-          </div>
-        )}
-        <div className="min-h-0 flex-1">
-          <ChatPanel
-            ref={chatRef}
-            manifest={manifest}
-            artifactsByGroup={artifactsByGroup}
-            onOpenSource={openSource}
-            onArtifactEvent={onArtifactEvent}
-            onOpenArtifact={openArtifact}
-            activeGroupId={activeGroupId}
-            onOpenLibrary={() => setLibraryOpen(true)}
-          />
-        </div>
-      </div>
+  // Pick which panel to show. User intent (rightPreference) wins; if the
+  // preferred panel isn't available, fall back to the other.
+  const bothActive = showArtifact && showSource;
+  const showing: "artifact" | "source" | null = (() => {
+    if (rightPreference === "source" && showSource) return "source";
+    if (rightPreference === "artifact" && showArtifact) return "artifact";
+    if (showArtifact) return "artifact";
+    if (showSource) return "source";
+    return null;
+  })();
 
-      {showArtifact && (
-        <div className="w-[560px] min-w-[360px] max-w-[55%] shrink-0">
-          <ArtifactPanel
-            artifact={activeArtifactWithVersion}
-            onClose={() => {
-              setActiveGroupId(null);
-              setActiveVersion(null);
-            }}
-            onPickVersion={(_, version) => setActiveVersion(version)}
-            onError={requestArtifactFix}
-          />
-        </div>
-      )}
-
-      {showSource && (
-        <div className="w-[440px] min-w-[320px] max-w-[40%] shrink-0">
-          <SourceViewer
-            manifest={manifest.documents}
-            open={sourceOpen}
-            activeDoc={sourceDoc}
-            activePage={sourcePage}
-            highlightBbox={sourceBbox}
-            onClose={() => setSourceOpen(false)}
-            onNavigate={(doc, page) => openSource(doc, page, null)}
-          />
-        </div>
-      )}
-
-      <LibraryDrawer
-        manifest={manifest.documents}
-        open={libraryOpen}
-        onClose={() => setLibraryOpen(false)}
-        onOpenPage={(doc, page) => {
-          openSource(doc, page);
-          setLibraryOpen(false);
+  let rightKey: string | null = null;
+  let rightNode: React.ReactNode = null;
+  if (showing === "artifact" && activeArtifactWithVersion) {
+    rightKey = `artifact:${activeArtifactWithVersion.group_id}`;
+    rightNode = (
+      <ArtifactPanel
+        artifact={activeArtifactWithVersion}
+        onClose={() => {
+          setActiveGroupId(null);
+          setActiveVersion(null);
         }}
+        onPickVersion={(_, version) => setActiveVersion(version)}
+        onError={requestArtifactFix}
       />
+    );
+  } else if (showing === "source") {
+    rightKey = `source:${sourceDoc}:${sourcePage}`;
+    rightNode = (
+      <SourceViewer
+        manifest={manifest.documents}
+        open={sourceOpen}
+        activeDoc={sourceDoc}
+        activePage={sourcePage}
+        highlightBbox={sourceBbox}
+        onClose={() => setSourceOpen(false)}
+        onNavigate={(doc, page) => openSource(doc, page, null)}
+      />
+    );
+  }
+
+  // When both are active, wrap the right-panel content with a thin switcher so
+  // the user can flip between the artifact and the currently-open source.
+  const rightWithSwitcher: React.ReactNode = rightNode && (
+    <div className="flex h-full min-w-0 flex-col">
+      {bothActive && showing && (
+        <RightPanelSwitcher
+          active={showing}
+          onSelect={setRightPreference}
+          artifactTitle={
+            activeArtifactWithVersion?.versions.find(
+              (v) => v.version === activeArtifactWithVersion.current_version,
+            )?.title
+          }
+          sourceLabel={
+            sourceDoc
+              ? `${
+                  manifest.documents.find((d) => d.slug === sourceDoc)?.title ||
+                  sourceDoc
+                } · p.${sourcePage}`
+              : null
+          }
+        />
+      )}
+      <div className="min-h-0 flex-1">{rightNode}</div>
+    </div>
+  );
+
+  return (
+    <AppShell
+      rightKey={rightKey}
+      right={rightWithSwitcher}
+      chat={
+        <>
+          <AnimatePresence>
+            {manifest.documents.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-xs text-red-200"
+              >
+                No documents ingested. {loadError && `Error: ${loadError}. `}
+                Drop PDFs into <code className="mx-0.5 rounded bg-surface-2 px-1 font-mono">files/</code> and run{" "}
+                <code className="mx-0.5 rounded bg-surface-2 px-1 font-mono">npm run ingest</code>.
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <div className="min-h-0 flex-1">
+            <ChatPanel
+              ref={chatRef}
+              manifest={manifest}
+              artifactsByGroup={artifactsByGroup}
+              onOpenSource={openSource}
+              onArtifactEvent={onArtifactEvent}
+              onOpenArtifact={openArtifact}
+              activeGroupId={activeGroupId}
+              onOpenLibrary={() => setLibraryOpen(true)}
+            />
+          </div>
+        </>
+      }
+      overlays={
+        <LibraryDrawer
+          manifest={manifest.documents}
+          open={libraryOpen}
+          onClose={() => setLibraryOpen(false)}
+          onOpenPage={(doc, page) => {
+            openSource(doc, page);
+            setLibraryOpen(false);
+          }}
+        />
+      }
+    />
+  );
+}
+
+function RightPanelSwitcher({
+  active,
+  onSelect,
+  artifactTitle,
+  sourceLabel,
+}: {
+  active: "artifact" | "source";
+  onSelect: (k: "artifact" | "source") => void;
+  artifactTitle?: string | null;
+  sourceLabel?: string | null;
+}) {
+  const tabs: {
+    key: "artifact" | "source";
+    Icon: React.ComponentType<{ className?: string }>;
+    label: string;
+    sub: string | null;
+  }[] = [
+    { key: "artifact", Icon: Sparkles, label: "Artifact", sub: artifactTitle || null },
+    { key: "source", Icon: FileText, label: "Source", sub: sourceLabel || null },
+  ];
+  return (
+    <div className="flex items-center gap-1 border-b border-border-subtle bg-surface-1/70 px-2 py-1.5 backdrop-blur-md">
+      {tabs.map(({ key, Icon, label, sub }) => {
+        const isActive = active === key;
+        return (
+          <button
+            key={key}
+            onClick={() => onSelect(key)}
+            className={cn(
+              "group relative inline-flex min-w-0 max-w-[50%] flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors",
+              isActive
+                ? "border-primary/50 bg-primary/10 text-fg"
+                : "border-border-subtle bg-surface-2/50 text-fg-muted hover:bg-surface-3/60 hover:text-fg",
+            )}
+          >
+            <Icon
+              className={cn(
+                "h-3.5 w-3.5 shrink-0",
+                isActive ? "text-primary" : "text-fg-dim",
+              )}
+            />
+            <div className="min-w-0">
+              <div className="truncate text-[11.5px] font-medium">{label}</div>
+              {sub && (
+                <div className="truncate font-mono text-[10px] text-fg-dim">
+                  {sub}
+                </div>
+              )}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }
