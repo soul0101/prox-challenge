@@ -6,7 +6,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 import { loadKB } from "@/lib/kb/load";
 import { paths } from "@/lib/kb/paths";
-import { hitsFromResults } from "@/lib/kb/search";
+import { hitsFromQueries } from "@/lib/kb/search";
 import { cropPage } from "@/lib/kb/crop";
 import { locateRegion } from "@/lib/kb/vision";
 import { generateArtifact, type ArtifactKind } from "./artifact";
@@ -72,16 +72,31 @@ export function buildMcpServer(bus: AgentEventBus, overrides: ToolOverrides = {}
 
       tool(
         "search",
-        "BM25 full-text search across all ingested manuals. Ranks over vision-generated summaries, figure captions, table text, keywords, and raw OCR text. Returns top matches with page citations and figure captions — use this to find candidate pages, then open_page to actually see them.",
+        `BM25 full-text search across all ingested manuals. Ranks over vision-generated summaries, figure captions, table text, keywords, and raw OCR text. Tokens are Porter-stemmed at both index and query time — "welding", "welded", "welds" collapse to the same root — and short all-caps codes (DCEP, FCAW, MIG) are preserved verbatim.
+
+IMPORTANT — pass MULTIPLE queries, not one.
+The manual uses formal vocabulary; users don't. You must expand the user's question into 2–4 paraphrases covering:
+  • the user's phrasing verbatim
+  • the manual's formal/jargon phrasing ("stick welding" → also pass "SMAW", "shielded metal arc")
+  • any abbreviation both expanded and contracted ("AC balance" → also "alternating current balance")
+  • split compound questions into per-topic variants (don't cram both into one query)
+Each paraphrase is scored independently; pages are merged with max-score + a small bonus for paraphrases that agree. One tool call covers the whole expansion — do NOT issue the same question multiple times.
+
+Returns top matches with page citations and figure captions. Use this to find candidate pages, then open_page to actually see them.`,
         {
-          query: z.string().describe("Natural-language query. Include jargon and part names verbatim."),
+          queries: z
+            .array(z.string().min(1))
+            .min(1)
+            .max(6)
+            .describe(
+              "2–4 paraphrases of the user's question (or 1 if truly unambiguous). Include jargon and part names verbatim. See the tool description for what to vary.",
+            ),
           top_k: z.number().int().min(1).max(12).optional().default(6),
           doc: z.string().optional().describe("Optional doc slug to restrict search"),
         },
-        async ({ query, top_k, doc }): Promise<CallToolResult> => {
+        async ({ queries, top_k, doc }): Promise<CallToolResult> => {
           const { index, manifest } = await loadKB();
-          const results = hitsFromResults(index, query, { top_k, doc });
-          // Enrich with a stable rendering hint.
+          const results = hitsFromQueries(index, queries, { top_k, doc });
           const rows = results.map((h) => ({
             doc: h.doc,
             doc_title: h.doc_title,
@@ -95,7 +110,7 @@ export function buildMcpServer(bus: AgentEventBus, overrides: ToolOverrides = {}
           return textContent(
             JSON.stringify(
               {
-                query,
+                queries,
                 hits: rows,
                 documents_available: manifest.documents.map((d) => ({ doc: d.slug, title: d.title })),
               },
@@ -290,9 +305,12 @@ You do NOT write the artifact code yourself. You write a detailed SPEC, and a de
 
 Kinds (pick the simplest that communicates the idea):
 - "svg": inline SVG. Best for schematics, socket maps, labelled static diagrams.
-- "mermaid": Mermaid flowchart/state-diagram. Best for decision trees, troubleshooting flows.
+- "flowchart": DEFAULT for any decision tree / troubleshooting / diagnostic flow. You emit a small JSON spec (questions, branches, terminals, citations) — a shared React template renders it as an interactive stepper with a collapsible "show full flow" overview. Much faster and cheaper than authoring the stepper TSX from scratch, and the look is consistent across flows. See the SPEC section below for the JSON shape.
+- "procedure": DEFAULT for any LINEAR step-by-step how-to. Use whenever the user asks "how do I load/install/replace/set up X" and the manual gives an ordered procedure with photos — wire spool loading, torch assembly, gas bottle hookup, drive-roller swap, calibration sequences. You emit a small JSON spec (ordered steps with markdown body + optional manual page image per step); a shared React template renders an interactive Next/Previous stepper with progress bar, per-step image, warnings, and citations. Prefer this over "markdown" for any procedure with > 2 steps or any step that benefits from showing the manual photo. See the SPEC section below for the JSON shape.
+- "image-labeling": DEFAULT for "what are the parts of…" / "label the controls on…" / "show me a labelled diagram of X" questions where the manual already has a photo or schematic with callouts. You emit a small JSON spec — the manual page image URL plus an ordered list of pinned labels (each with x/y percentage position, short title, and a 1–2 sentence description from the manual). A shared React template renders the image with numbered pins; hovering or clicking a pin shows a compact tooltip with the title, description, and citation. Prefer this over "svg" whenever the manual's own photo is the source of truth — don't redraw what the manual already has. See the SPEC section below for the JSON shape.
+- "mermaid": static Mermaid diagram. Use sparingly — only for tiny at-a-glance reference diagrams (< 5 nodes) where the user just needs to see the shape, not navigate. Never use for real decision trees; use "flowchart" for those.
 - "html": standalone sandboxed HTML. Use only when React is overkill (trivial static layouts).
-- "react": React/TSX in a sandboxed iframe. Hooks + recharts + lucide-react + Tailwind preloaded. Best for calculators, configurators, interactive steppers, charts.
+- "react": React/TSX in a sandboxed iframe. Hooks + recharts + lucide-react + Tailwind preloaded. Best for calculators, configurators, charts. ESCAPE HATCH for decision trees: use "react" only if the flow genuinely needs mixed interactivity the "flowchart" template cannot express (e.g. a node that embeds a live calculator, a chart, or non-tree navigation with state that branches and merges).
 - "markdown": long-form markdown. Use sparingly — prefer react for anything interactive.
 
 WHAT A GREAT SPEC LOOKS LIKE
@@ -306,13 +324,38 @@ Write the spec as if briefing a skilled designer who has never seen the manual. 
 
 A weak spec says "a duty cycle calculator". A strong spec lists the exact amperage range, the exact duty-cycle formula, the exact page numbers, and what the output should read.
 
+FLOWCHART SPECS (kind="flowchart")
+The flowchart kind is schema-driven — the artifact author emits JSON that a shared React template renders. Your spec should describe the flow in a form the author can translate node-by-node:
+- **Start question**: what the user is asked first (exact wording from the manual if it exists), plus the page citation.
+- **Nodes**: every decision point, action, and terminal outcome. For each one include: the question or imperative title, the manual page it came from, any safety warning to surface, and the branches (each with a concrete condition label — "Arc sputtering" / "Bead is narrow and ropey" — not bare "Yes/No" unless the question is literally binary).
+- **Branches resolve**: make it clear which downstream node each branch leads to.
+- **Terminals**: every path must end somewhere — a fix, a part replacement, a "call support", a "problem resolved". State the resolution wording and citation.
+- **Overall citations**: the manual pages that back the flow, for the footer.
+A weak flowchart spec says "a troubleshooting flow for porosity". A strong one lists ~5–10 nodes by name (check_gas → fix_gas / check_wire / …), each with its exact question, branches, and page reference.
+
+PROCEDURE SPECS (kind="procedure")
+The procedure kind is also schema-driven — a shared React template renders a Next/Previous stepper with per-step image + markdown + optional warning. Your spec should enumerate every step in order so the author can fill the schema directly:
+- **Title + subtitle**: short headline ("Loading a wire spool") + optional one-line summary.
+- **Steps (ordered)**: for each step include the exact imperative title, the markdown body (sub-steps, exact diameters / torque values / knob names verbatim from the manual), the page citation, and — critically — the manual PAGE IMAGE URL to attach. Page images live at "/sources/{doc-slug}/p-NNN.png" (zero-padded page number). If you've seen the page via open_page or search_results.page_url, include that URL under the step so the author embeds it.
+- **Warnings**: flag any step that has a real safety or equipment-damage warning in the manual (power off, don't overtighten, wear glasses) and phrase the warning as it appears in the manual.
+- **Citations**: a page range covering the whole procedure for the footer ("p.10", "p.11", "p.12", "p.15", "p.17").
+A weak procedure spec says "wire spool loading guide". A strong one lists 8–12 numbered steps, each with the exact manual wording, the page image URL, and any warning verbatim.
+
+IMAGE-LABELING SPECS (kind="image-labeling")
+The image-labeling kind is schema-driven — a shared React template renders the image with numbered pins. Hovering or clicking a pin shows a tooltip with the title, description, and citation for that label. There is no bottom panel — the tooltip is the only place the description text appears, so keep descriptions tight. Your spec should enumerate the image and every callout the author needs to pin:
+- **Image**: the full manual-page image URL ("/sources/{doc-slug}/p-NNN.png") and a short alt text describing the scene. You MUST have opened the page (open_page or show_source) so you know which callouts exist and roughly where they sit.
+- **Labels (ordered)**: for each callout list: a stable snake_case id ("drive_roller", "spool_knob"), the x/y PERCENTAGE position on the page image (0–100, with 0,0 = top-left; use open_page's rendered-pixel coords ÷ the page dimensions to approximate), the short label title (from the manual's own callout when it has one), a 1–2 sentence description of what the part is / does (manual wording preferred — keep it tight since it renders in a narrow hover tooltip), and a short page citation.
+- **Citations**: the manual pages backing the labels.
+Pin ordering = pin numbering (1, 2, 3…). Order labels the way the manual does, typically top-to-bottom or following the manual's own callout numbers.
+A weak image-labeling spec says "label the front panel". A strong one lists every callout by name, with approximate x/y percentages, a tight 1–2 sentence description per label, and page citations.
+
 VERSIONING
 If you are revising an existing artifact (user asked you to tweak it, add a feature, fix a visual bug), pass the SAME \`group_id\` — the UI stacks the new version as v2/v3 under the existing card. Use a fresh stable slug ("duty-cycle-calc", "porosity-tree") for brand-new artifacts.
 
 AUTO-FIX FLOW
 If a prior artifact failed to render (you'll receive an error message), call emit_artifact AGAIN with the same group_id and pass the error verbatim as \`error_context\`. The author will diagnose and fix. You don't need to guess the syntax fix — just relay the error and restate the spec.`,
         {
-          kind: z.enum(["react", "html", "svg", "mermaid", "markdown"]),
+          kind: z.enum(["react", "html", "svg", "mermaid", "markdown", "flowchart", "procedure", "image-labeling"]),
           title: z.string().describe("Short user-facing title shown on the artifact card."),
           spec: z
             .string()

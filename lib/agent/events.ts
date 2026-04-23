@@ -26,7 +26,7 @@ export type AgentEvent =
   | {
       type: "artifact";
       id: string;
-      kind: "react" | "html" | "svg" | "mermaid" | "markdown";
+      kind: "react" | "html" | "svg" | "mermaid" | "markdown" | "flowchart" | "procedure" | "image-labeling";
       title: string;
       code: string;
       /** if provided, this artifact is a new VERSION of an earlier one with the

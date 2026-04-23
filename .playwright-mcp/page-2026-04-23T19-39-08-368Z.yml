@@ -1,0 +1,172 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e19] [cursor=pointer]:
+    - img [ref=e20]
+  - alert [ref=e23]
+  - generic [ref=e27]:
+    - generic [ref=e28]:
+      - banner [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - button "Conversations" [ref=e32] [cursor=pointer]:
+              - img [ref=e33]
+              - generic [ref=e35]: "4"
+            - img [ref=e37]
+            - generic [ref=e42]:
+              - generic [ref=e43]:
+                - generic [ref=e44]: Manual Copilot
+                - generic "ready" [ref=e45]: ready
+              - generic [ref=e48]: 3 docs · 51 pages · Owner Manual
+          - generic [ref=e49]:
+            - button "Memory" [ref=e50] [cursor=pointer]:
+              - img [ref=e51]
+              - generic [ref=e61]: Memory
+            - button "Library" [ref=e62] [cursor=pointer]:
+              - img [ref=e63]
+              - generic [ref=e65]: Library
+            - button "Open settings" [ref=e66] [cursor=pointer]:
+              - img [ref=e67]
+      - generic [ref=e71]:
+        - generic [ref=e74]: I want to weld 3/16-inch mild steel T-joints on 240V with MIG. Build me a settings configurator — I slide voltage and wire-feed-speed and you tell me whether I'm in the safe envelope per the manual's chart, cite the page at the boundary conditions, and show me what a good bead at those settings looks like versus too cold and too hot.
+        - generic [ref=e75]:
+          - img [ref=e79]
+          - generic [ref=e84]:
+            - generic [ref=e85]:
+              - generic "search" [ref=e86]:
+                - img [ref=e87]
+                - generic [ref=e89]: search
+                - img [ref=e91]
+              - generic "open_page · p.27" [ref=e93]:
+                - img [ref=e94]
+                - generic [ref=e96]: open_page
+                - generic [ref=e97]: · p.27
+                - img [ref=e99]
+              - generic "crop_region" [ref=e101]:
+                - img [ref=e102]
+                - generic [ref=e104]: crop_region
+                - img [ref=e106]
+              - generic "Drew interactive React component · Safe operating envelope" [ref=e108]:
+                - img [ref=e109]
+                - generic [ref=e113]: Drew interactive React component
+                - generic [ref=e114]: · Safe operating envelope
+                - img [ref=e116]
+            - generic [ref=e119]:
+              - paragraph [ref=e120]:
+                - text: The artifact on the right reads the operating chart from
+                - strong [ref=e121]: p.27
+                - text: "— for 3/16″ mild steel MIG on 240V input with 0.035″ wire, the safe envelope is a diagonal band:"
+              - list [ref=e122]:
+                - listitem [ref=e123]:
+                  - text: Voltage
+                  - strong [ref=e124]: 17–21 V
+                  - text: paired with wire-feed
+                  - strong [ref=e125]: 290–380 ipm
+                  - text: ", with WFS scaling roughly as"
+                  - code [ref=e126]: WFS ≈ 18 × V
+                  - text: .
+                - listitem [ref=e127]:
+                  - text: The
+                  - strong [ref=e128]: green region
+                  - text: on the chart is the safe envelope. Drag either slider and the blob marking your current settings will move — the status banner above flips to yellow at the edge of the envelope and red once you're clearly outside.
+              - paragraph [ref=e129]: "What the four bead states look like in real life (bottom of the artifact panel, with the manual's weld-quality references on p.37 as the ground truth):"
+              - list [ref=e130]:
+                - listitem [ref=e131]:
+                  - strong [ref=e132]: Too cold
+                  - text: — bead sits on top of the parent metal like a rope; the edges don't wet in. Caused by WFS too low for the voltage. Fusion risk — the bead looks fine cosmetically and pops off on the first hammer tap.
+                - listitem [ref=e133]:
+                  - strong [ref=e134]: Good
+                  - text: — even convex profile, clean wetting, consistent ripples. Stable
+                  - emphasis [ref=e135]: frying-bacon
+                  - text: arc sound.
+                - listitem [ref=e136]:
+                  - strong [ref=e137]: Running hot (mild)
+                  - text: — bead gets flatter, ripples stretch out. Arc is harsher but the weld is still sound; usually an accepted operating point if you need a bit more penetration.
+                - listitem [ref=e138]:
+                  - strong [ref=e139]: Too hot
+                  - text: — wide, flat bead with undercut along the toes, occasional burnback popping at the tip. Caused by WFS too high for the voltage — wire is outrunning the arc.
+              - paragraph [ref=e140]:
+                - text: A reasonable
+                - strong [ref=e141]: starting point
+                - text: for this joint is
+                - strong [ref=e142]: 18.5 V / 340 ipm
+                - text: — straight in the centre of the envelope per p.27. Run a 3-inch bead on scrap first, then fine-tune ± 0.5 V / ± 20 ipm based on the sound and the profile.
+            - button "Operating chart — voltage × wire-feed-speed envelope for MIG on mild steel p.27 OmniPro 220 owner's manual Operating chart — voltage × wire-feed-speed envelope for MIG on mild steel" [ref=e145] [cursor=pointer]:
+              - generic [ref=e146]:
+                - img "Operating chart — voltage × wire-feed-speed envelope for MIG on mild steel" [ref=e147]
+                - generic [ref=e149]: p.27
+              - generic [ref=e150]:
+                - generic [ref=e151]: OmniPro 220 owner's manual
+                - generic [ref=e152]: Operating chart — voltage × wire-feed-speed envelope for MIG on mild steel
+            - generic [ref=e154]:
+              - generic [ref=e155]:
+                - img [ref=e157]
+                - generic [ref=e161]:
+                  - generic [ref=e162]: Safe operating envelope — 3/16″ mild steel MIG · 240V
+                  - generic [ref=e164]: Interactive
+                - button "Reload" [ref=e166] [cursor=pointer]:
+                  - img [ref=e167]
+              - iframe [ref=e171]:
+                - generic [ref=f1e3]:
+                  - generic [ref=f1e4]:
+                    - generic [ref=f1e5]: Settings configurator
+                    - generic [ref=f1e6]: MIG · 3/16″ mild steel · 240 V
+                  - heading "Are we inside the safe envelope?" [level=1] [ref=f1e7]
+                  - generic [ref=f1e8]:
+                    - generic [ref=f1e9]:
+                      - generic [ref=f1e10]:
+                        - generic [ref=f1e11]: Voltage
+                        - generic [ref=f1e12]: 19.0 V
+                      - slider [ref=f1e13]: "19"
+                      - generic [ref=f1e14]:
+                        - generic [ref=f1e15]: 14 V
+                        - generic [ref=f1e16]: 24 V
+                    - generic [ref=f1e17]:
+                      - generic [ref=f1e18]:
+                        - generic [ref=f1e19]: Wire feed
+                        - generic [ref=f1e20]: 340 ipm
+                      - slider [ref=f1e21]: "340"
+                      - generic [ref=f1e22]:
+                        - generic [ref=f1e23]: "200"
+                        - generic [ref=f1e24]: "500"
+                  - generic [ref=f1e27]:
+                    - generic [ref=f1e28]: In the pocket
+                    - generic [ref=f1e29]: Stable arc, clean bead profile, sound fusion.
+                  - generic [ref=f1e30]:
+                    - img [ref=f1e31]:
+                      - generic [ref=f1e33]: "500"
+                      - generic [ref=f1e34]: "200"
+                      - generic [ref=f1e35]: WFS (ipm)
+                      - generic [ref=f1e36]: "14"
+                      - generic [ref=f1e37]: "24"
+                      - generic [ref=f1e38]: Voltage (V)
+                      - generic [ref=f1e40]: SAFE
+                    - generic [ref=f1e43]: owner's manual p.27 · operating chart for MIG / 0.035″ / 3/16″ mild steel
+                  - generic [ref=f1e44]:
+                    - generic [ref=f1e45]: What each regime looks like in the bead
+                    - generic [ref=f1e46]:
+                      - generic [ref=f1e47]:
+                        - img [ref=f1e48]
+                        - generic [ref=f1e52]: too cold
+                      - generic [ref=f1e53]:
+                        - img [ref=f1e54]
+                        - generic [ref=f1e57]: good
+                      - generic [ref=f1e58]:
+                        - img [ref=f1e59]
+                        - generic [ref=f1e62]: too hot (mild)
+                      - generic [ref=f1e63]:
+                        - img [ref=f1e64]
+                        - generic [ref=f1e68]: too hot
+    - generic [ref=e175]:
+      - generic [ref=e176]:
+        - textbox "Message" [ref=e177]
+        - generic: Which terminals do I plug the work clamp and torch into for TIG welding?
+      - generic [ref=e178]:
+        - generic [ref=e179]:
+          - button "Voice input" [ref=e180] [cursor=pointer]:
+            - img [ref=e181]
+          - button "Attach image (coming soon)" [disabled] [ref=e184]:
+            - img [ref=e185]
+          - generic [ref=e188]:
+            - img [ref=e189]
+            - text: Multimodal
+        - button "Send" [disabled] [ref=e192]:
+          - img [ref=e193]

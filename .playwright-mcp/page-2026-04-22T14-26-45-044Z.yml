@@ -1,0 +1,75 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e19] [cursor=pointer]:
+    - img [ref=e20]
+  - alert [ref=e23]
+  - generic [ref=e27]:
+    - banner [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - button "Conversations" [ref=e31] [cursor=pointer]:
+            - img [ref=e32]
+            - generic [ref=e34]: "1"
+          - img [ref=e36]
+          - generic [ref=e41]:
+            - generic [ref=e42]:
+              - generic [ref=e43]: Manual Copilot
+              - generic "ready" [ref=e44]: ready
+            - generic [ref=e47]: 3 docs · 51 pages · Owner Manual
+        - generic [ref=e48]:
+          - button "Memory" [ref=e49] [cursor=pointer]:
+            - img [ref=e50]
+            - generic [ref=e60]: Memory
+          - button "Library" [ref=e61] [cursor=pointer]:
+            - img [ref=e62]
+            - text: Library
+          - button "Open settings" [ref=e64] [cursor=pointer]:
+            - img [ref=e65]
+    - generic [ref=e70]:
+      - img [ref=e73]
+      - heading "Ask anything about the Owner Manual." [level=1] [ref=e78]
+      - paragraph [ref=e79]: I read your manuals end-to-end with vision — I'll cite pages, surface diagrams, and draw flowcharts or calculators when words aren't enough.
+      - generic [ref=e80]:
+        - button "Show me the front panel controls and explain what each knob and button does." [ref=e81] [cursor=pointer]:
+          - generic [ref=e82]:
+            - img [ref=e84]
+            - generic [ref=e87]: Show me the front panel controls and explain what each knob and button does.
+        - button "What polarity should I use for flux-cored vs. solid-wire MIG vs. stick welding?" [ref=e88] [cursor=pointer]:
+          - generic [ref=e89]:
+            - img [ref=e91]
+            - generic [ref=e96]: What polarity should I use for flux-cored vs. solid-wire MIG vs. stick welding?
+        - button "Which terminals do I plug the work clamp and torch into for TIG welding?" [ref=e97] [cursor=pointer]:
+          - generic [ref=e98]:
+            - img [ref=e100]
+            - generic [ref=e103]: Which terminals do I plug the work clamp and torch into for TIG welding?
+        - button "Can you walk me through loading a new wire spool step by step?" [ref=e104] [cursor=pointer]:
+          - generic [ref=e105]:
+            - img [ref=e107]
+            - generic [ref=e111]: Can you walk me through loading a new wire spool step by step?
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - img [ref=e114]
+          - text: Cite pages
+        - generic [ref=e117]:
+          - img [ref=e118]
+          - text: Draw diagrams
+        - generic [ref=e122]:
+          - img [ref=e123]
+          - text: Run calculators
+        - generic [ref=e125]:
+          - img [ref=e126]
+          - text: Voice in
+    - generic [ref=e132]:
+      - generic [ref=e133]:
+        - textbox "Message" [ref=e134]
+        - generic: Show me the front panel controls and explain what each knob and button does.
+      - generic [ref=e135]:
+        - generic [ref=e136]:
+          - button "Voice input" [ref=e137] [cursor=pointer]:
+            - img [ref=e138]
+          - button "Attach image (coming soon)" [disabled] [ref=e141]:
+            - img [ref=e142]
+          - generic [ref=e145]:
+            - img [ref=e146]
+            - text: Multimodal
+        - button "Send" [disabled] [ref=e149]:
+          - img [ref=e150]

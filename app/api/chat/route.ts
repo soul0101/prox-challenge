@@ -23,19 +23,38 @@ export async function POST(req: NextRequest) {
     apiKey?: string;
     model?: string;
     artifactModel?: string;
+    memory?: unknown;
   };
   try {
     body = await req.json();
   } catch {
     return new Response("bad json", { status: 400 });
   }
-  const history = Array.isArray(body.history) ? body.history : [];
-  if (history.length === 0) return new Response("empty history", { status: 400 });
+  const rawHistory = Array.isArray(body.history) ? body.history : [];
+  if (rawHistory.length === 0) return new Response("empty history", { status: 400 });
+
+  // Strip any attachments off turns the SDK won't consume. The runtime only
+  // honors attachments on the latest user turn; earlier turns' images get
+  // dropped here so we don't ship megabytes of base64 we'll never use.
+  const history: ChatTurn[] = rawHistory.map((t, i) => ({
+    role: t.role,
+    content: t.content,
+    attachments: i === rawHistory.length - 1 ? t.attachments : undefined,
+  }));
+
+  const memory = Array.isArray(body.memory)
+    ? body.memory
+        .filter((f): f is string => typeof f === "string")
+        .map((f) => f.trim())
+        .filter((f) => f.length > 0)
+        .slice(0, 40)
+    : undefined;
 
   const settings: AgentSettings = {
     apiKey: typeof body.apiKey === "string" && body.apiKey ? body.apiKey : undefined,
     modelTier: pickTier(body.model),
     artifactModelTier: pickTier(body.artifactModel),
+    memory,
   };
 
   const abort = new AbortController();

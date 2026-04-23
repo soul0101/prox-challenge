@@ -10,6 +10,8 @@ import {
   Shapes,
   Workflow,
   FileText,
+  ListChecks,
+  Tag,
 } from "lucide-react";
 import {
   type ArtifactAttachment,
@@ -21,8 +23,11 @@ const KIND_LABEL: Record<string, string> = {
   react: "Interactive",
   html: "HTML",
   svg: "SVG diagram",
-  mermaid: "Flowchart",
+  mermaid: "Diagram",
   markdown: "Markdown",
+  flowchart: "Interactive flow",
+  procedure: "Step-by-step guide",
+  "image-labeling": "Labelled diagram",
 };
 
 const KIND_ACCENT: Record<
@@ -53,11 +58,29 @@ const KIND_ACCENT: Record<
     ring: "ring-violet-500/30",
     Icon: Workflow,
   },
+  flowchart: {
+    grad: "from-orange-500/25 via-amber-500/10 to-transparent",
+    text: "text-orange-200",
+    ring: "ring-orange-500/30",
+    Icon: Workflow,
+  },
+  procedure: {
+    grad: "from-sky-500/25 via-cyan-500/10 to-transparent",
+    text: "text-sky-200",
+    ring: "ring-sky-500/30",
+    Icon: ListChecks,
+  },
   markdown: {
     grad: "from-zinc-500/20 via-zinc-500/5 to-transparent",
     text: "text-zinc-200",
     ring: "ring-zinc-500/30",
     Icon: FileText,
+  },
+  "image-labeling": {
+    grad: "from-rose-500/25 via-pink-500/10 to-transparent",
+    text: "text-rose-200",
+    ring: "ring-rose-500/30",
+    Icon: Tag,
   },
 };
 

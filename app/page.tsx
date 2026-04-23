@@ -1,38 +1,118 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChatPanel, type ChatPanelHandle } from "@/components/chat/ChatPanel";
 import { ArtifactPanel } from "@/components/artifact/Panel";
 import { SourceViewer } from "@/components/source/Viewer";
 import { LibraryDrawer } from "@/components/library/Drawer";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
+import { ThreadSidebar } from "@/components/threads/ThreadSidebar";
+import { MemoryDialog, MemoryToast } from "@/components/memory/MemoryDialog";
 import { hasOnboarded, markOnboarded, useSettings } from "@/lib/client/settings";
+import {
+  deriveTitle,
+  fromChatMessage,
+  toChatMessage,
+  useThreads,
+} from "@/lib/client/threads";
+import { factsAsLines, useUserMemory } from "@/lib/client/memory";
 import { AppShell } from "@/components/shell/AppShell";
+import { useIsDesktop } from "@/lib/ui/useBreakpoint";
 import { LogoMark } from "@/components/ui/LogoMark";
-import { FileText, Sparkles } from "lucide-react";
 import type { Manifest } from "@/lib/kb/types";
-import type { ArtifactAttachment, SourceAttachment } from "@/lib/client/chat-types";
+import type {
+  ArtifactAttachment,
+  ChatMessage,
+  SourceAttachment,
+} from "@/lib/client/chat-types";
+import { activeVersion } from "@/lib/client/chat-types";
 import { ease } from "@/lib/ui/motion";
-import { cn } from "@/lib/utils";
+
+/**
+ * Whatever is currently docked in the right pane. Sources open here when
+ * the user clicks a source card in chat — artifacts stay inline in the
+ * chat column so both can coexist.
+ */
+type RightPaneView = {
+  kind: "source";
+  doc: string;
+  page: number;
+  bbox: [number, number, number, number] | null;
+};
 
 export default function Home() {
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [artifactsByGroup, setArtifactsByGroup] = useState<
-    Map<string, ArtifactAttachment>
-  >(() => new Map());
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const [activeVersion, setActiveVersion] = useState<number | null>(null);
-  const [sourceDoc, setSourceDoc] = useState<string | null>(null);
-  const [sourcePage, setSourcePage] = useState<number | null>(null);
-  const [sourceBbox, setSourceBbox] = useState<
-    [number, number, number, number] | null
-  >(null);
-  const [sourceOpen, setSourceOpen] = useState(false);
+  const [rightPane, setRightPane] = useState<RightPaneView | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [threadsOpen, setThreadsOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [recentAutoFacts, setRecentAutoFacts] = useState<string[]>([]);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
   const [settings, updateSettings, resetSettings] = useSettings();
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+  const [threadsState, threadOps, activeThread] = useThreads();
+  const [memory, memoryOps] = useUserMemory();
+  const memoryLines = useMemo(() => factsAsLines(memory), [memory]);
+  const isDesktop = useIsDesktop();
+
+  // On desktop, pop the conversations sidebar open once on first mount so the
+  // user sees the pre-seeded demo threads without having to discover the
+  // button. One-shot: if they close it, it stays closed for the session, and
+  // we hold off until any first-visit settings dialog has been dismissed so
+  // the two don't stack awkwardly.
+  const didAutoOpenThreadsRef = useRef(false);
+  useEffect(() => {
+    if (didAutoOpenThreadsRef.current) return;
+    if (!isDesktop) return;
+    if (isFirstVisit) return;
+    if (threadsState.threads.length === 0) return;
+    didAutoOpenThreadsRef.current = true;
+    setThreadsOpen(true);
+  }, [isDesktop, isFirstVisit, threadsState.threads.length]);
+
+  // Guarantee there is always an active thread once the manifest is loaded,
+  // so a first-time user can start chatting without clicking "new".
+  useEffect(() => {
+    if (!manifest) return;
+    if (activeThread) return;
+    if (threadsState.threads.length === 0) {
+      threadOps.create();
+    } else {
+      threadOps.setActive(threadsState.threads[0].id);
+    }
+  }, [manifest, activeThread, threadsState.threads, threadOps]);
+
+  const artifactsByGroup = useMemo<Map<string, ArtifactAttachment>>(() => {
+    const src = activeThread?.artifacts ?? {};
+    return new Map(Object.entries(src));
+  }, [activeThread?.artifacts]);
+
+  // When the active thread changes, close any open right-pane view — it
+  // belongs to the previous thread.
+  useEffect(() => {
+    setRightPane(null);
+  }, [activeThread?.id]);
+
+  // Lazy ref for callbacks that run outside render (artifact events, turn
+  // completion). Within render, use `activeThread` directly.
+  const activeThreadRef = useRef(activeThread);
+  useEffect(() => {
+    activeThreadRef.current = activeThread;
+  });
+
+  // Only re-hydrate when the thread CHANGES (new id). We deliberately ignore
+  // in-place message mutations so ChatPanel's live state isn't clobbered
+  // mid-turn.
+  const initialMessages = useMemo<ChatMessage[]>(
+    () => (activeThread ? activeThread.messages.map(toChatMessage) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeThread?.id],
+  );
 
   // First-visit: auto-open settings so the user configures the API key and
   // models before their first request. We flip the onboarded flag the moment
@@ -51,11 +131,6 @@ export default function Home() {
       setIsFirstVisit(false);
     }
   }, [isFirstVisit]);
-  /** Which right-panel the user last interacted with. Decides precedence when
-   *  both an artifact and a source happen to be active at the same time. */
-  const [rightPreference, setRightPreference] = useState<"artifact" | "source">(
-    "artifact",
-  );
 
   const chatRef = useRef<ChatPanelHandle>(null);
   // Track which (group_id, version) pairs we've already auto-fixed, so a
@@ -92,19 +167,35 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
       .catch((e) => setLoadError(String(e.message || e)));
   }, []);
 
-  const openSource = useCallback((doc: string, page: number, attach?: SourceAttachment | null) => {
-    setSourceDoc(doc);
-    setSourcePage(page);
-    setSourceBbox(attach?.bbox || null);
-    setSourceOpen(true);
-    setRightPreference("source");
-  }, []);
+  const openSource = useCallback(
+    (doc: string, page: number, attach?: SourceAttachment | null) => {
+      setRightPane({ kind: "source", doc, page, bbox: attach?.bbox || null });
+    },
+    [],
+  );
 
-  const openArtifact = useCallback((groupId: string, version?: number) => {
-    setActiveGroupId(groupId);
-    setActiveVersion(version ?? null);
-    setRightPreference("artifact");
-  }, []);
+  const closeRightPane = useCallback(() => setRightPane(null), []);
+
+  // Picking a version from an inline artifact card: update the thread's
+  // current_version in place so the inline iframe re-renders at the new
+  // version. No right-pane interaction — artifacts stay inline.
+  const pickArtifactVersion = useCallback(
+    (groupId: string, version: number) => {
+      const current = activeThreadRef.current;
+      if (!current) return;
+      const existing = current.artifacts[groupId];
+      if (!existing) return;
+      threadOps.updateActive({
+        artifacts: {
+          ...current.artifacts,
+          [groupId]: { ...existing, current_version: version },
+        },
+      });
+    },
+    // threadOps is stable; activeThreadRef is read at call time
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   const onArtifactEvent = useCallback(
     (
@@ -120,54 +211,107 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
     ) => {
       const groupId = e.group_id || e.id;
       const ts = Date.now();
-      setArtifactsByGroup((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(groupId);
-        if (existing) {
-          const version = existing.versions.length + 1;
-          const updated: ArtifactAttachment = {
-            ...existing,
-            current_version: version,
-            versions: [
-              ...existing.versions,
-              {
-                id: e.id,
-                kind: e.kind,
-                title: e.title,
-                code: e.code,
-                version,
-                note: e.version_note,
-                ts,
-              },
-            ],
-          };
-          next.set(groupId, updated);
-        } else {
-          next.set(groupId, {
-            group_id: groupId,
-            current_version: 1,
-            versions: [
-              {
-                id: e.id,
-                kind: e.kind,
-                title: e.title,
-                code: e.code,
-                version: 1,
-                note: e.version_note,
-                ts,
-              },
-            ],
-          });
-        }
-        return next;
+      const current = activeThreadRef.current;
+      if (!current) return;
+      const existing = current.artifacts[groupId];
+      let updated: ArtifactAttachment;
+      if (existing) {
+        const version = existing.versions.length + 1;
+        updated = {
+          ...existing,
+          current_version: version,
+          versions: [
+            ...existing.versions,
+            {
+              id: e.id,
+              kind: e.kind,
+              title: e.title,
+              code: e.code,
+              version,
+              note: e.version_note,
+              ts,
+            },
+          ],
+        };
+      } else {
+        updated = {
+          group_id: groupId,
+          current_version: 1,
+          versions: [
+            {
+              id: e.id,
+              kind: e.kind,
+              title: e.title,
+              code: e.code,
+              version: 1,
+              note: e.version_note,
+              ts,
+            },
+          ],
+        };
+      }
+      threadOps.updateActive({
+        artifacts: { ...current.artifacts, [groupId]: updated },
       });
-      // Auto-open the latest version.
-      setActiveGroupId(groupId);
-      setActiveVersion(null);
-      setRightPreference("artifact");
+      // Artifacts render inline in chat via InlineArtifact; nothing else to
+      // do here. The right pane is reserved for manual sources.
       callback?.(groupId);
     },
-    [],
+    [threadOps],
+  );
+
+  const onTurnComplete = useCallback(
+    ({
+      messages,
+      lastUser,
+      lastAssistant,
+    }: {
+      messages: ChatMessage[];
+      lastUser: string;
+      lastAssistant: string;
+    }) => {
+      const current = activeThreadRef.current;
+      if (!current) return;
+
+      const stored = messages.map(fromChatMessage);
+      const titlePatch =
+        current.title === "New chat" && stored.length > 0
+          ? { title: deriveTitle(stored) }
+          : {};
+      threadOps.updateActive({ messages: stored, ...titlePatch });
+
+      if (!lastUser.trim() || !lastAssistant.trim()) return;
+
+      const existing = memoryLines;
+      const apiKey = settingsRef.current.apiKey || undefined;
+
+      // Fire-and-forget memory extraction. Never blocks the user.
+      fetch("/api/memory/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          apiKey,
+          existing,
+          user: lastUser,
+          assistant: lastAssistant,
+        }),
+      })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json?.error) {
+            console.warn("[memory] extraction error:", json.error, json.raw || "");
+          }
+          if (!json || !Array.isArray(json.facts)) return;
+          const newFacts = memoryOps.replaceAuto(json.facts as string[]);
+          if (newFacts.length > 0) {
+            setRecentAutoFacts(newFacts.map((f) => f.text));
+          }
+        })
+        .catch((err) => {
+          console.warn("[memory] extraction failed:", err);
+        });
+    },
+    [memoryLines, memoryOps, threadOps],
   );
 
   if (!manifest) {
@@ -190,93 +334,33 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
     );
   }
 
-  const activeArtifact = activeGroupId
-    ? artifactsByGroup.get(activeGroupId) || null
-    : null;
-  // Resolve the active version to view; latest if none picked.
-  const activeArtifactWithVersion: ArtifactAttachment | null = activeArtifact
-    ? {
-        ...activeArtifact,
-        current_version:
-          activeVersion ?? activeArtifact.versions[activeArtifact.versions.length - 1].version,
-      }
-    : null;
-
-  const showArtifact = !!activeArtifactWithVersion;
-  const showSource = sourceOpen && sourceDoc !== null && sourcePage !== null;
-
-  // Pick which panel to show. User intent (rightPreference) wins; if the
-  // preferred panel isn't available, fall back to the other.
-  const bothActive = showArtifact && showSource;
-  const showing: "artifact" | "source" | null = (() => {
-    if (rightPreference === "source" && showSource) return "source";
-    if (rightPreference === "artifact" && showArtifact) return "artifact";
-    if (showArtifact) return "artifact";
-    if (showSource) return "source";
-    return null;
-  })();
-
-  let rightKey: string | null = null;
+  // Right-pane content. Sources dock here when the user clicks a card in
+  // chat; artifacts stay inline in the chat column. The pane keeps chat
+  // visible beside it — context preserved, scroll preserved.
   let rightNode: React.ReactNode = null;
-  if (showing === "artifact" && activeArtifactWithVersion) {
-    rightKey = `artifact:${activeArtifactWithVersion.group_id}`;
-    rightNode = (
-      <ArtifactPanel
-        artifact={activeArtifactWithVersion}
-        onClose={() => {
-          setActiveGroupId(null);
-          setActiveVersion(null);
-        }}
-        onPickVersion={(_, version) => setActiveVersion(version)}
-        onError={requestArtifactFix}
-      />
-    );
-  } else if (showing === "source") {
-    rightKey = `source:${sourceDoc}:${sourcePage}`;
+  let rightKey: string | null = null;
+  if (rightPane?.kind === "source") {
+    rightKey = `${rightPane.doc}:${rightPane.page}`;
     rightNode = (
       <SourceViewer
         manifest={manifest.documents}
-        open={sourceOpen}
-        activeDoc={sourceDoc}
-        activePage={sourcePage}
-        highlightBbox={sourceBbox}
-        onClose={() => setSourceOpen(false)}
-        onNavigate={(doc, page) => openSource(doc, page, null)}
+        open={true}
+        activeDoc={rightPane.doc}
+        activePage={rightPane.page}
+        highlightBbox={rightPane.bbox}
+        onClose={closeRightPane}
+        onNavigate={(doc, page) =>
+          setRightPane({ kind: "source", doc, page, bbox: null })
+        }
       />
     );
   }
 
-  // When both are active, wrap the right-panel content with a thin switcher so
-  // the user can flip between the artifact and the currently-open source.
-  const rightWithSwitcher: React.ReactNode = rightNode && (
-    <div className="flex h-full min-w-0 flex-col">
-      {bothActive && showing && (
-        <RightPanelSwitcher
-          active={showing}
-          onSelect={setRightPreference}
-          artifactTitle={
-            activeArtifactWithVersion?.versions.find(
-              (v) => v.version === activeArtifactWithVersion.current_version,
-            )?.title
-          }
-          sourceLabel={
-            sourceDoc
-              ? `${
-                  manifest.documents.find((d) => d.slug === sourceDoc)?.title ||
-                  sourceDoc
-                } · p.${sourcePage}`
-              : null
-          }
-        />
-      )}
-      <div className="min-h-0 flex-1">{rightNode}</div>
-    </div>
-  );
-
   return (
     <AppShell
       rightKey={rightKey}
-      right={rightWithSwitcher}
+      right={rightNode}
+      onCloseRight={closeRightPane}
       chat={
         <>
           <AnimatePresence>
@@ -300,10 +384,18 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
               artifactsByGroup={artifactsByGroup}
               onOpenSource={openSource}
               onArtifactEvent={onArtifactEvent}
-              onOpenArtifact={openArtifact}
-              activeGroupId={activeGroupId}
+              onPickArtifactVersion={pickArtifactVersion}
+              onArtifactError={requestArtifactFix}
               onOpenLibrary={() => setLibraryOpen(true)}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenThreads={() => setThreadsOpen(true)}
+              onOpenMemory={() => setMemoryOpen(true)}
+              threadKey={activeThread?.id ?? null}
+              initialMessages={initialMessages}
+              memory={memoryLines}
+              onTurnComplete={onTurnComplete}
+              threadCount={threadsState.threads.length}
+              memoryCount={memory.facts.length}
             />
           </div>
         </>
@@ -319,6 +411,37 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
               setLibraryOpen(false);
             }}
           />
+          <ThreadSidebar
+            open={threadsOpen}
+            threads={threadsState.threads}
+            activeId={threadsState.activeId}
+            onClose={() => setThreadsOpen(false)}
+            onCreate={() => threadOps.create()}
+            onSelect={(id) => threadOps.setActive(id)}
+            onRename={threadOps.rename}
+            onDelete={threadOps.remove}
+            onOpenMemory={() => {
+              // Crisp handoff: let the sidebar finish its exit animation
+              // (~280 ms) before popping the memory dialog, so the two
+              // modals don't visibly overlap mid-way across the viewport.
+              setThreadsOpen(false);
+              setTimeout(() => setMemoryOpen(true), 260);
+            }}
+            memoryCount={memory.facts.length}
+          />
+          <MemoryDialog
+            open={memoryOpen}
+            memory={memory}
+            onClose={() => setMemoryOpen(false)}
+            onAdd={(text) => memoryOps.add(text, "manual")}
+            onUpdate={memoryOps.update}
+            onRemove={memoryOps.remove}
+            onClear={memoryOps.clear}
+          />
+          <MemoryToast
+            facts={recentAutoFacts}
+            onDismiss={() => setRecentAutoFacts([])}
+          />
           <SettingsDialog
             open={settingsOpen}
             firstVisit={isFirstVisit}
@@ -333,58 +456,3 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
   );
 }
 
-function RightPanelSwitcher({
-  active,
-  onSelect,
-  artifactTitle,
-  sourceLabel,
-}: {
-  active: "artifact" | "source";
-  onSelect: (k: "artifact" | "source") => void;
-  artifactTitle?: string | null;
-  sourceLabel?: string | null;
-}) {
-  const tabs: {
-    key: "artifact" | "source";
-    Icon: React.ComponentType<{ className?: string }>;
-    label: string;
-    sub: string | null;
-  }[] = [
-    { key: "artifact", Icon: Sparkles, label: "Artifact", sub: artifactTitle || null },
-    { key: "source", Icon: FileText, label: "Source", sub: sourceLabel || null },
-  ];
-  return (
-    <div className="flex items-center gap-1 border-b border-border-subtle bg-surface-1/70 px-2 py-1.5 backdrop-blur-md">
-      {tabs.map(({ key, Icon, label, sub }) => {
-        const isActive = active === key;
-        return (
-          <button
-            key={key}
-            onClick={() => onSelect(key)}
-            className={cn(
-              "group relative inline-flex min-w-0 max-w-[50%] flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors",
-              isActive
-                ? "border-primary/50 bg-primary/10 text-fg"
-                : "border-border-subtle bg-surface-2/50 text-fg-muted hover:bg-surface-3/60 hover:text-fg",
-            )}
-          >
-            <Icon
-              className={cn(
-                "h-3.5 w-3.5 shrink-0",
-                isActive ? "text-primary" : "text-fg-dim",
-              )}
-            />
-            <div className="min-w-0">
-              <div className="truncate text-[11.5px] font-medium">{label}</div>
-              {sub && (
-                <div className="truncate font-mono text-[10px] text-fg-dim">
-                  {sub}
-                </div>
-              )}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}

@@ -20,6 +20,8 @@ import {
   FileCode,
   FileText,
   AlertTriangle,
+  ListChecks,
+  Tag,
 } from "lucide-react";
 import {
   type ArtifactAttachment,
@@ -37,6 +39,9 @@ const KIND_GLYPH: Record<string, React.ComponentType<{ className?: string }>> = 
   svg: Shapes,
   mermaid: Workflow,
   markdown: FileText,
+  flowchart: Workflow,
+  procedure: ListChecks,
+  "image-labeling": Tag,
 };
 
 const KIND_TINT: Record<string, { ring: string; text: string; bg: string }> = {
@@ -45,6 +50,9 @@ const KIND_TINT: Record<string, { ring: string; text: string; bg: string }> = {
   svg: { ring: "ring-emerald-500/30", text: "text-emerald-200", bg: "bg-emerald-500/10" },
   mermaid: { ring: "ring-violet-500/30", text: "text-violet-200", bg: "bg-violet-500/10" },
   markdown: { ring: "ring-zinc-500/30", text: "text-zinc-200", bg: "bg-zinc-500/10" },
+  flowchart: { ring: "ring-orange-500/30", text: "text-orange-200", bg: "bg-orange-500/10" },
+  procedure: { ring: "ring-sky-500/30", text: "text-sky-200", bg: "bg-sky-500/10" },
+  "image-labeling": { ring: "ring-rose-500/30", text: "text-rose-200", bg: "bg-rose-500/10" },
 };
 
 export function ArtifactPanel({
@@ -169,10 +177,10 @@ export function ArtifactPanel({
   const tint = KIND_TINT[v.kind] || KIND_TINT.markdown;
 
   return (
-    <aside className={cn("flex flex-col glass border-l border-l-border-strong/50", wrapper)}>
+    <aside className={cn("flex flex-col glass", wrapper)}>
       {/* Top row: title + actions */}
-      <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 pb-2.5 pt-3">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="flex items-start justify-between gap-2 border-b border-border-subtle px-3 pb-2.5 pt-3 sm:gap-3 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           <div
             className={cn(
               "grid h-10 w-10 shrink-0 place-items-center rounded-xl ring-1",
@@ -245,15 +253,25 @@ export function ArtifactPanel({
               <Copy className="h-3.5 w-3.5" />
             )}
           </IconBtn>
-          <IconBtn title="Download as HTML" onClick={downloadStandalone}>
+          <IconBtn
+            title="Download as HTML"
+            onClick={downloadStandalone}
+            className="hidden sm:inline-flex"
+          >
             <Download className="h-3.5 w-3.5" />
           </IconBtn>
-          <IconBtn title="Open in new tab" onClick={openInNewTab}>
+          <IconBtn
+            title="Open in new tab"
+            onClick={openInNewTab}
+            className="hidden sm:inline-flex"
+          >
             <ExternalLink className="h-3.5 w-3.5" />
           </IconBtn>
           <IconBtn
             title={fullscreen ? "Exit full screen" : "Full screen"}
             onClick={() => setFullscreen((f) => !f)}
+            // Mobile sheet is already full-height; fullscreen would escape it.
+            className="hidden lg:inline-flex"
           >
             {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </IconBtn>
@@ -417,11 +435,13 @@ function IconBtn({
   onClick,
   title,
   disabled,
+  className,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   title: string;
   disabled?: boolean;
+  className?: string;
 }) {
   return (
     <button
@@ -429,7 +449,10 @@ function IconBtn({
       title={title}
       aria-label={title}
       disabled={disabled}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-fg-dim transition-all hover:bg-surface-3/70 hover:text-fg active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30"
+      className={cn(
+        "inline-flex h-8 w-8 items-center justify-center rounded-lg text-fg-dim transition-all hover:bg-surface-3/70 hover:text-fg active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30",
+        className,
+      )}
     >
       {children}
     </button>
@@ -495,6 +518,7 @@ function buildStandaloneHtml(v: ArtifactVersion): string {
       mermaid.initialize({ startOnLoad: false, theme: "dark" });
 
       function err(m) { root.innerHTML = '<pre class="artifact-err">' + String(m) + '</pre>'; }
+      function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
       try {
         if (kind === "svg") root.innerHTML = code;
         else if (kind === "html") root.innerHTML = code;
@@ -502,6 +526,63 @@ function buildStandaloneHtml(v: ArtifactVersion): string {
         else if (kind === "mermaid") {
           const { svg } = await mermaid.render("m", code);
           root.innerHTML = svg;
+        } else if (kind === "procedure") {
+          // Downloads render a static linear list of all steps (no stepper UI).
+          // The in-app panel is where the interactive walk-through lives.
+          const spec = JSON.parse(code);
+          const header = '<div style="margin-bottom:20px;"><div style="font-size:22px;font-weight:700;color:#fafafa;">' + esc(spec.title) + '</div>' + (spec.subtitle ? '<div style="color:#a1a1aa;font-size:13.5px;margin-top:4px;">' + esc(spec.subtitle) + '</div>' : '') + '<div style="font-family:ui-monospace,monospace;font-size:10.5px;color:#71717a;margin-top:8px;text-transform:uppercase;letter-spacing:0.08em;">Static procedure reference &middot; ' + (spec.steps?.length || 0) + ' steps &middot; view in app for interactive stepper</div></div>';
+          const stepHtml = (spec.steps || []).map((s, i) => {
+            const num = String(i + 1).padStart(2, '0');
+            const cite = s.citation ? ' <span style="font-family:ui-monospace,monospace;color:#a1a1aa;font-size:11px;border:1px solid rgba(255,255,255,0.08);padding:2px 6px;border-radius:5px;">' + esc(s.citation) + '</span>' : '';
+            const img = s.imageUrl ? '<figure style="margin:14px 0 0;"><div style="border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;background:rgba(0,0,0,0.2);"><img src="' + esc(s.imageUrl) + '" alt="" style="display:block;max-width:100%;max-height:420px;margin:0 auto;" /></div>' + (s.imageCaption ? '<figcaption style="text-align:center;font-family:ui-monospace,monospace;font-size:10.5px;color:#71717a;margin-top:6px;text-transform:uppercase;letter-spacing:0.06em;">' + esc(s.imageCaption) + '</figcaption>' : '') + '</figure>' : '';
+            const body = '<div class="proc-body" style="margin-top:12px;color:#d4d4d8;font-size:13.5px;line-height:1.6;">' + marked.parse(s.markdown || '') + '</div>';
+            const warn = s.warning ? '<div style="margin-top:14px;padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;color:#fde68a;font-size:13px;line-height:1.5;"><span style="display:inline-block;margin-right:8px;width:18px;height:18px;background:rgba(245,158,11,0.25);color:#fcd34d;border-radius:999px;text-align:center;font-weight:700;font-size:11px;line-height:18px;">!</span>' + esc(s.warning) + '</div>' : '';
+            return '<section style="padding:20px;border:1px solid rgba(255,255,255,0.08);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,0.025),rgba(255,255,255,0.01));margin-bottom:14px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><div style="display:flex;align-items:center;gap:10px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;border:1px solid rgba(56,189,248,0.3);background:rgba(56,189,248,0.08);color:#bae6fd;font-family:ui-monospace,monospace;font-size:13px;font-weight:600;">' + num + '</span><div style="font-family:ui-monospace,monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(125,211,252,0.85);">Step ' + (i + 1) + ' of ' + spec.steps.length + '</div></div>' + cite + '</div><div style="margin-top:10px;font-size:18px;font-weight:600;color:#fafafa;line-height:1.3;">' + esc(s.title) + '</div>' + img + body + warn + '</section>';
+          }).join('');
+          const sources = spec.citations && spec.citations.length ? '<div style="margin-top:20px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#71717a;">Sources: ' + spec.citations.map(esc).join(', ') + '</div>' : '';
+          const style = '<style>.proc-body p{margin:0.5em 0}.proc-body ul,.proc-body ol{padding-left:1.4em;margin:0.5em 0}.proc-body li{margin:0.25em 0}.proc-body strong{color:#fafafa}.proc-body code{background:rgba(255,255,255,0.06);color:#bae6fd;padding:1.5px 6px;border-radius:4px;font-size:12px}.proc-body h1,.proc-body h2,.proc-body h3{color:#fafafa;margin:0.8em 0 0.4em}</style>';
+          root.innerHTML = style + header + stepHtml + sources;
+        } else if (kind === "image-labeling") {
+          // Downloads render a static image + numbered pins with a fallback
+          // numbered legend (hover tooltips can't survive a static HTML export).
+          const spec = JSON.parse(code);
+          const pins = (spec.labels || []).map((l, i) => '<div title="' + esc(l.title) + '" style="position:absolute;left:' + l.x + '%;top:' + l.y + '%;transform:translate(-50%,-50%);display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;border:2px solid #fda4af;background:rgba(244,63,94,0.85);color:#fff;font-family:ui-monospace,monospace;font-size:12px;font-weight:600;box-shadow:0 0 12px rgba(244,63,94,0.4);">' + (i + 1) + '</div>').join('');
+          const legend = (spec.labels || []).map((l, i) => '<li style="display:flex;gap:10px;padding:8px 10px;margin-bottom:4px;"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;border:1px solid rgba(244,63,94,0.4);background:rgba(244,63,94,0.15);color:#fecdd3;font-family:ui-monospace,monospace;font-size:10.5px;font-weight:600;flex-shrink:0;">' + (i + 1) + '</span><div><div style="font-size:13px;font-weight:600;color:#fafafa;">' + esc(l.title) + (l.citation ? ' <span style="font-family:ui-monospace,monospace;color:#a1a1aa;font-size:10.5px;margin-left:6px;">' + esc(l.citation) + '</span>' : '') + '</div><div style="margin-top:2px;font-size:12px;color:#d4d4d8;line-height:1.5;">' + esc(l.description) + '</div></div></li>').join('');
+          const header = '<div style="margin-bottom:16px;"><div style="font-size:20px;font-weight:700;color:#fafafa;">' + esc(spec.title) + '</div>' + (spec.subtitle ? '<div style="color:#a1a1aa;font-size:13px;margin-top:4px;">' + esc(spec.subtitle) + '</div>' : '') + '<div style="font-family:ui-monospace,monospace;font-size:10.5px;color:#71717a;margin-top:6px;text-transform:uppercase;letter-spacing:0.05em;">Static labelled diagram &middot; hover tooltips only available in app</div></div>';
+          const stage = '<div style="position:relative;border:1px solid rgba(255,255,255,0.08);border-radius:14px;overflow:hidden;background:rgba(0,0,0,0.3);margin-bottom:14px;"><img src="' + esc(spec.imageUrl) + '" alt="' + esc(spec.imageAlt || '') + '" style="display:block;max-width:100%;width:100%;object-fit:contain;" />' + pins + '</div>';
+          const legendBlock = '<details style="margin-top:10px;"><summary style="cursor:pointer;font-family:ui-monospace,monospace;font-size:10.5px;color:#a1a1aa;text-transform:uppercase;letter-spacing:0.06em;">Show label legend (' + (spec.labels?.length || 0) + ')</summary><ol style="list-style:none;padding:12px 0 0;margin:0;">' + legend + '</ol></details>';
+          const sources = spec.citations && spec.citations.length ? '<div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#71717a;">Sources: ' + spec.citations.map(esc).join(', ') + '</div>' : '';
+          root.innerHTML = header + stage + legendBlock + sources;
+        } else if (kind === "flowchart") {
+          // Downloads render a static tree view of the flow (no interactivity).
+          // The in-app panel is the place to walk through it step-by-step.
+          const spec = JSON.parse(code);
+          const glyph = (k) => k === 'question' ? '?' : k === 'action' ? '&#9656;' : '&#9679;';
+          const tint = (k) => k === 'question' ? '#fbbf24' : k === 'action' ? '#38bdf8' : '#34d399';
+          const rendered = new Set();
+          const lines = [];
+          function walk(id, depth, via) {
+            const node = spec.nodes[id];
+            const pad = depth * 20 + 8;
+            if (!node) { lines.push('<div style="padding-left:' + pad + 'px;color:#fca5a5;">missing: ' + esc(id) + '</div>'); return; }
+            if (rendered.has(id)) {
+              lines.push('<div style="padding-left:' + pad + 'px;color:#71717a;font-size:12px;">' + (via ? 'via <em>' + esc(via) + '</em> ' : '') + '&#8617; back to "' + esc(node.title.slice(0,40)) + '"</div>');
+              return;
+            }
+            rendered.add(id);
+            const cite = node.citation ? ' <span style="font-family:ui-monospace,monospace;color:#a1a1aa;font-size:11px;">' + esc(node.citation) + '</span>' : '';
+            const viaLabel = via ? '<div style="font-family:ui-monospace,monospace;font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:0.05em;">via ' + esc(via) + '</div>' : '';
+            const warn = node.warning ? '<div style="margin-top:6px;padding:6px 10px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:6px;color:#fde68a;font-size:12px;">&#9888; ' + esc(node.warning) + '</div>' : '';
+            const detail = node.detail ? '<div style="color:#d4d4d8;font-size:13px;margin-top:4px;">' + esc(node.detail) + '</div>' : '';
+            const outcome = node.outcome ? ' <span style="background:rgba(251,146,60,0.2);color:#fdba74;padding:1px 8px;border-radius:999px;font-size:10.5px;font-weight:600;">' + esc(node.outcome) + '</span>' : '';
+            lines.push('<div style="padding:8px 12px 8px ' + pad + 'px;border-left:2px solid rgba(255,255,255,0.08);margin-bottom:2px;">' + viaLabel + '<div style="display:flex;align-items:baseline;gap:8px;"><span style="color:' + tint(node.kind) + ';font-weight:600;">' + glyph(node.kind) + '</span><span style="font-weight:600;color:#f4f4f5;">' + esc(node.title) + '</span>' + cite + outcome + '</div>' + detail + warn + '</div>');
+            if (node.kind === 'question') for (const b of node.branches) walk(b.next, depth + 1, b.label);
+            else if (node.kind === 'action') walk(node.next, depth + 1);
+          }
+          walk(spec.start, 0);
+          const header = '<div style="margin-bottom:16px;"><div style="font-size:20px;font-weight:700;color:#fafafa;">' + esc(spec.title) + '</div>' + (spec.subtitle ? '<div style="color:#a1a1aa;font-size:13px;margin-top:4px;">' + esc(spec.subtitle) + '</div>' : '') + '<div style="font-family:ui-monospace,monospace;font-size:10.5px;color:#71717a;margin-top:6px;text-transform:uppercase;letter-spacing:0.05em;">Static flow reference &middot; view in app for interactive stepper</div></div>';
+          const sources = spec.citations && spec.citations.length ? '<div style="margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);font-size:11px;color:#71717a;">Sources: ' + spec.citations.map(esc).join(', ') + '</div>' : '';
+          root.innerHTML = header + lines.join('') + sources;
         } else if (kind === "react") {
           const pre = "import React from 'react';\\nimport { useState, useEffect, useRef, useMemo, useCallback, useReducer, useLayoutEffect, useContext, createContext, Fragment } from 'react';\\n";
           const cleaned = code.replace(/^[ \\t]*import\\s+(?:[\\w*{}\\s,]+\\s+from\\s+)?['\\"]react['\\"][\\s;]*$/gm, "");

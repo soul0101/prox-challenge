@@ -1,6 +1,8 @@
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 
+type SdkPrompt = Parameters<typeof sdkQuery>[0]["prompt"];
+
 /**
  * Thin adapter around the Claude Agent SDK's `query()` that:
  *  - throws a helpful error if the `claude` CLI is not on PATH
@@ -9,8 +11,12 @@ import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
  * The Claude Agent SDK spawns a `claude` subprocess and streams messages back.
  * We use this for both the ingest-time vision passes and the runtime chat loop
  * so the whole app authenticates via the user's existing Claude login.
+ *
+ * `prompt` may be a plain string (text-only turn, default path) or an async
+ * iterable of SDKUserMessage — the latter is how we pass multimodal
+ * content-block input (text + image) for vision-grounded questions.
  */
-export function runQuery(args: { prompt: string; options: Options }) {
+export function runQuery(args: { prompt: SdkPrompt; options: Options }) {
   // Capture the subprocess's stderr. The SDK's default is `"ignore"` which
   // means when the `claude` CLI crashes the only surface is
   // `Claude Code process exited with code 1` — not diagnosable in prod.

@@ -1,0 +1,243 @@
+- generic [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e19] [cursor=pointer]:
+    - img [ref=e20]
+  - alert [ref=e23]
+  - generic [ref=e24]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - banner [ref=e29]:
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - button "Conversations" [active] [ref=e32] [cursor=pointer]:
+                - img [ref=e33]
+                - generic [ref=e35]: "5"
+              - img [ref=e37]
+              - generic [ref=e43]:
+                - generic [ref=e44]: Manual Copilot
+                - generic "ready" [ref=e45]: ready
+            - generic [ref=e48]:
+              - button "Memory" [ref=e49] [cursor=pointer]:
+                - img [ref=e50]
+              - button "Library" [ref=e60] [cursor=pointer]:
+                - img [ref=e61]
+              - button "Open settings" [ref=e63] [cursor=pointer]:
+                - img [ref=e64]
+        - generic [ref=e68]:
+          - generic [ref=e71]: I want to weld 3/16-inch mild steel T-joints on 240V with MIG. Build me a settings configurator — I slide voltage and wire-feed-speed and you tell me whether I'm in the safe envelope per the manual's chart, cite the page at the boundary conditions, and show me what a good bead at those settings looks like versus too cold and too hot.
+          - generic [ref=e72]:
+            - img [ref=e76]
+            - generic [ref=e81]:
+              - generic [ref=e82]:
+                - generic "search" [ref=e83]:
+                  - img [ref=e84]
+                  - generic [ref=e86]: search
+                  - img [ref=e88]
+                - generic "open_page · p.27" [ref=e90]:
+                  - img [ref=e91]
+                  - generic [ref=e93]: open_page
+                  - generic [ref=e94]: · p.27
+                  - img [ref=e96]
+                - generic "crop_region" [ref=e98]:
+                  - img [ref=e99]
+                  - generic [ref=e101]: crop_region
+                  - img [ref=e103]
+                - generic "Drew interactive React component · Safe operating envelope" [ref=e105]:
+                  - img [ref=e106]
+                  - generic [ref=e110]: Drew interactive React component
+                  - generic [ref=e111]: · Safe operating envelope
+                  - img [ref=e113]
+              - generic [ref=e116]:
+                - paragraph [ref=e117]:
+                  - text: The artifact on the right reads the operating chart from
+                  - strong [ref=e118]: p.27
+                  - text: "— for 3/16″ mild steel MIG on 240V input with 0.035″ wire, the safe envelope is a diagonal band:"
+                - list [ref=e119]:
+                  - listitem [ref=e120]:
+                    - text: Voltage
+                    - strong [ref=e121]: 17–21 V
+                    - text: paired with wire-feed
+                    - strong [ref=e122]: 290–380 ipm
+                    - text: ", with WFS scaling roughly as"
+                    - code [ref=e123]: WFS ≈ 18 × V
+                    - text: .
+                  - listitem [ref=e124]:
+                    - text: The
+                    - strong [ref=e125]: green region
+                    - text: on the chart is the safe envelope. Drag either slider and the blob marking your current settings will move — the status banner above flips to yellow at the edge of the envelope and red once you're clearly outside.
+                - paragraph [ref=e126]: "What the four bead states look like in real life (bottom of the artifact panel, with the manual's weld-quality references on p.37 as the ground truth):"
+                - list [ref=e127]:
+                  - listitem [ref=e128]:
+                    - strong [ref=e129]: Too cold
+                    - text: — bead sits on top of the parent metal like a rope; the edges don't wet in. Caused by WFS too low for the voltage. Fusion risk — the bead looks fine cosmetically and pops off on the first hammer tap.
+                  - listitem [ref=e130]:
+                    - strong [ref=e131]: Good
+                    - text: — even convex profile, clean wetting, consistent ripples. Stable
+                    - emphasis [ref=e132]: frying-bacon
+                    - text: arc sound.
+                  - listitem [ref=e133]:
+                    - strong [ref=e134]: Running hot (mild)
+                    - text: — bead gets flatter, ripples stretch out. Arc is harsher but the weld is still sound; usually an accepted operating point if you need a bit more penetration.
+                  - listitem [ref=e135]:
+                    - strong [ref=e136]: Too hot
+                    - text: — wide, flat bead with undercut along the toes, occasional burnback popping at the tip. Caused by WFS too high for the voltage — wire is outrunning the arc.
+                - paragraph [ref=e137]:
+                  - text: A reasonable
+                  - strong [ref=e138]: starting point
+                  - text: for this joint is
+                  - strong [ref=e139]: 18.5 V / 340 ipm
+                  - text: — straight in the centre of the envelope per p.27. Run a 3-inch bead on scrap first, then fine-tune ± 0.5 V / ± 20 ipm based on the sound and the profile.
+              - button "Operating chart — voltage × wire-feed-speed envelope for MIG on mild steel p.27 OmniPro 220 owner's manual Operating chart — voltage × wire-feed-speed envelope for MIG on mild steel" [ref=e142] [cursor=pointer]:
+                - generic [ref=e143]:
+                  - img "Operating chart — voltage × wire-feed-speed envelope for MIG on mild steel" [ref=e144]
+                  - generic [ref=e146]: p.27
+                - generic [ref=e147]:
+                  - generic [ref=e148]: OmniPro 220 owner's manual
+                  - generic [ref=e149]: Operating chart — voltage × wire-feed-speed envelope for MIG on mild steel
+              - generic [ref=e151]:
+                - generic [ref=e152]:
+                  - img [ref=e154]
+                  - generic [ref=e158]:
+                    - generic [ref=e159]: Safe operating envelope — 3/16″ mild steel MIG · 240V
+                    - generic [ref=e161]: Interactive
+                  - button "Reload" [ref=e163] [cursor=pointer]:
+                    - img [ref=e164]
+                - iframe [ref=e168]:
+                  - generic [ref=f1e3]:
+                    - generic [ref=f1e4]:
+                      - generic [ref=f1e5]: Settings configurator
+                      - generic [ref=f1e6]: MIG · 3/16″ mild steel · 240 V
+                    - heading "Are we inside the safe envelope?" [level=1] [ref=f1e7]
+                    - generic [ref=f1e8]:
+                      - generic [ref=f1e9]:
+                        - generic [ref=f1e10]:
+                          - generic [ref=f1e11]: Voltage
+                          - generic [ref=f1e12]: 19.0 V
+                        - slider [ref=f1e13]: "19"
+                        - generic [ref=f1e14]:
+                          - generic [ref=f1e15]: 14 V
+                          - generic [ref=f1e16]: 24 V
+                      - generic [ref=f1e17]:
+                        - generic [ref=f1e18]:
+                          - generic [ref=f1e19]: Wire feed
+                          - generic [ref=f1e20]: 340 ipm
+                        - slider [ref=f1e21]: "340"
+                        - generic [ref=f1e22]:
+                          - generic [ref=f1e23]: "200"
+                          - generic [ref=f1e24]: "500"
+                    - generic [ref=f1e27]:
+                      - generic [ref=f1e28]: In the pocket
+                      - generic [ref=f1e29]: Stable arc, clean bead profile, sound fusion.
+                    - generic [ref=f1e30]:
+                      - img [ref=f1e31]:
+                        - generic [ref=f1e33]: "500"
+                        - generic [ref=f1e34]: "200"
+                        - generic [ref=f1e35]: WFS (ipm)
+                        - generic [ref=f1e36]: "14"
+                        - generic [ref=f1e37]: "24"
+                        - generic [ref=f1e38]: Voltage (V)
+                        - generic [ref=f1e40]: SAFE
+                      - generic [ref=f1e43]: owner's manual p.27 · operating chart for MIG / 0.035″ / 3/16″ mild steel
+                    - generic [ref=f1e44]:
+                      - generic [ref=f1e45]: What each regime looks like in the bead
+                      - generic [ref=f1e46]:
+                        - generic [ref=f1e47]:
+                          - img [ref=f1e48]
+                          - generic [ref=f1e52]: too cold
+                        - generic [ref=f1e53]:
+                          - img [ref=f1e54]
+                          - generic [ref=f1e57]: good
+                        - generic [ref=f1e58]:
+                          - img [ref=f1e59]
+                          - generic [ref=f1e62]: too hot (mild)
+                        - generic [ref=f1e63]:
+                          - img [ref=f1e64]
+                          - generic [ref=f1e68]: too hot
+        - button "Scroll to latest message" [ref=e189] [cursor=pointer]:
+          - img [ref=e190]
+      - generic [ref=e172]:
+        - generic [ref=e173]:
+          - textbox "Message" [ref=e174]
+          - generic: Show me the front panel controls and explain what each knob and button does.
+        - generic [ref=e175]:
+          - generic [ref=e176]:
+            - button "Voice input" [ref=e177] [cursor=pointer]:
+              - img [ref=e178]
+            - button "Attach image (coming soon)" [disabled] [ref=e181]:
+              - img [ref=e182]
+          - button "Send" [disabled] [ref=e186]:
+            - img [ref=e187]
+    - generic [ref=e352]:
+      - generic [ref=e353]:
+        - banner [ref=e354]:
+          - generic [ref=e355]:
+            - img [ref=e357]
+            - generic [ref=e359]:
+              - generic [ref=e360]: Conversations
+              - generic [ref=e361]: 5 saved · on this device
+          - button "Close" [ref=e362] [cursor=pointer]:
+            - img [ref=e363]
+        - generic [ref=e366]:
+          - button "New chat" [ref=e367] [cursor=pointer]:
+            - img [ref=e368]
+            - text: New chat
+          - button "Memory 1" [ref=e369] [cursor=pointer]:
+            - img [ref=e370]
+            - text: Memory
+            - generic [ref=e380]: "1"
+        - generic [ref=e382]:
+          - img
+          - textbox "Search conversations…" [ref=e383]
+        - list [ref=e385]:
+          - listitem [ref=e386]:
+            - generic [ref=e387] [cursor=pointer]:
+              - generic [ref=e389]:
+                - generic [ref=e390]: Demo · Front-panel annotations
+                - generic [ref=e391]: 2 messages · 1d ago
+              - generic [ref=e392]:
+                - button "Rename" [ref=e393]:
+                  - img [ref=e394]
+                - button "Delete" [ref=e397]:
+                  - img [ref=e398]
+          - listitem [ref=e401]:
+            - generic [ref=e402] [cursor=pointer]:
+              - generic [ref=e404]:
+                - generic [ref=e405]: New chat
+                - generic [ref=e406]: 0 messages · 1d ago
+              - generic [ref=e407]:
+                - button "Rename" [ref=e408]:
+                  - img [ref=e409]
+                - button "Delete" [ref=e412]:
+                  - img [ref=e413]
+          - listitem [ref=e416]:
+            - generic [ref=e417] [cursor=pointer]:
+              - generic [ref=e419]:
+                - generic [ref=e420]: Demo · MIG setup walkthrough
+                - generic [ref=e421]: 2 messages · 2d ago
+              - generic [ref=e422]:
+                - button "Rename" [ref=e423]:
+                  - img [ref=e424]
+                - button "Delete" [ref=e427]:
+                  - img [ref=e428]
+          - listitem [ref=e431]:
+            - generic [ref=e432] [cursor=pointer]:
+              - generic [ref=e434]:
+                - generic [ref=e435]: Demo · Thermal-protection diagnosis
+                - generic [ref=e436]: 2 messages · 4d ago
+              - generic [ref=e437]:
+                - button "Rename" [ref=e438]:
+                  - img [ref=e439]
+                - button "Delete" [ref=e442]:
+                  - img [ref=e443]
+          - listitem [ref=e446]:
+            - generic [ref=e447] [cursor=pointer]:
+              - generic [ref=e449]:
+                - generic [ref=e450]: Demo · Safe-envelope calculator
+                - generic [ref=e451]: 2 messages · 6d ago
+              - generic [ref=e452]:
+                - button "Rename" [ref=e453]:
+                  - img [ref=e454]
+                - button "Delete" [ref=e457]:
+                  - img [ref=e458]
+        - contentinfo [ref=e461]:
+          - generic [ref=e462]: Conversations and memory live in this browser. Clearing site data or switching devices resets them.
+      - button "close drawer" [ref=e463] [cursor=pointer]

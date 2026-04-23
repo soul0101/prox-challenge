@@ -1,0 +1,121 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e19] [cursor=pointer]:
+    - img [ref=e20]
+  - alert [ref=e23]
+  - generic [ref=e27]:
+    - generic [ref=e28]:
+      - banner [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - button "Conversations" [ref=e32] [cursor=pointer]:
+              - img [ref=e33]
+              - generic [ref=e35]: "5"
+            - img [ref=e37]
+            - generic [ref=e43]:
+              - generic [ref=e44]: Manual Copilot
+              - generic "ready" [ref=e45]: ready
+          - generic [ref=e48]:
+            - button "Memory" [ref=e49] [cursor=pointer]:
+              - img [ref=e50]
+            - button "Library" [ref=e60] [cursor=pointer]:
+              - img [ref=e61]
+            - button "Open settings" [ref=e63] [cursor=pointer]:
+              - img [ref=e64]
+      - generic [ref=e68]:
+        - generic [ref=e466]: Label every control on the front panel of the OmniPro 220 — knobs, sockets, display, power switch. I'm holding the machine in front of me and I want numbered pins on a real photo, with a short description of what each one does.
+        - generic [ref=e467]:
+          - img [ref=e471]
+          - generic [ref=e476]:
+            - generic [ref=e477]:
+              - generic "search" [ref=e478]:
+                - img [ref=e479]
+                - generic [ref=e481]: search
+                - img [ref=e483]
+              - generic "open_page · p.8" [ref=e485]:
+                - img [ref=e486]
+                - generic [ref=e488]: open_page
+                - generic [ref=e489]: · p.8
+                - img [ref=e491]
+              - generic "emit_artifact · Front-panel controls" [ref=e493]:
+                - img [ref=e494]
+                - generic [ref=e496]: emit_artifact
+                - generic [ref=e497]: · Front-panel controls
+                - img [ref=e499]
+            - generic [ref=e502]:
+              - paragraph [ref=e503]:
+                - text: The artifact on the right overlays 13 numbered pins on the real front-panel diagram from
+                - strong [ref=e504]: p.8
+                - text: — one per callout on the manual's Front Panel Controls page. Hover a pin or a description to highlight the counterpart.
+              - paragraph [ref=e505]: "The controls, grouped by region:"
+              - list [ref=e506]:
+                - listitem [ref=e507]:
+                  - strong [ref=e508]: LCD Display
+                  - text: — the single source of truth for what the machine is about to do. Shows the selected process, wire diameter, live voltage, live wire-feed speed, and the detected input voltage (120 V or 240 V) on every boot. The active function above each knob updates live as you move through menus.
+                - listitem [ref=e509]:
+                  - strong [ref=e510]: Home Button
+                  - text: and
+                  - strong [ref=e511]: Back Button
+                  - text: — menu navigation. Home returns you to the main process-select screen; Back steps one level up in whichever submenu you're in.
+                - listitem [ref=e512]:
+                  - strong [ref=e513]: Left Knob
+                  - text: ","
+                  - strong [ref=e514]: Control Knob
+                  - text: ", and"
+                  - strong [ref=e515]: Right Knob
+                  - text: — three dials whose meaning depends on the current screen. On the main screen, typically voltage and wire-feed speed on the outer knobs; inside submenus, parameter values. The Control Knob in the middle doubles as a push-to-click confirm.
+                - listitem [ref=e516]:
+                  - strong [ref=e517]: Power Switch
+                  - text: — rocker on the upper right of the faceplate. The machine re-detects input voltage on every power-on.
+                - listitem [ref=e518]:
+                  - strong [ref=e519]: Negative Socket
+                  - text: and
+                  - strong [ref=e520]: Positive Socket
+                  - text: — DCEN and DCEP output terminals. Which one your torch vs. ground clamp plug into depends on the process; the polarity setup lives on
+                  - strong [ref=e521]: p.13
+                  - text: . The single most common "my machine suddenly welds badly" cause is forgetting to swap these after a process change.
+                - listitem [ref=e522]:
+                  - strong [ref=e523]: MIG Gun / Spool Gun Cable Socket
+                  - text: — one Euro-style plug carries welding current, trigger pilot, and shielding gas to the gun. Used for both the standard MIG gun and the optional Spool Gun.
+                - listitem [ref=e524]:
+                  - strong [ref=e525]: Spool Gun Gas Outlet
+                  - text: — separate gas port that the optional Spool Gun's gas hose connects to when you're running with it.
+                - listitem [ref=e526]:
+                  - strong [ref=e527]: Wire Feed Power Cable
+                  - text: — internal power cable running from the control board to the wire-feed drive rolls. Exits the faceplate on the left.
+                - listitem [ref=e528]:
+                  - strong [ref=e529]: Storage Compartment
+                  - text: — recessed cubby on the lower right for spare tips, a nozzle cleaner, a drive-roll spanner — the small things you reach for every five minutes.
+              - paragraph [ref=e530]: Click any row in the description list to flash the matching pin on the image.
+            - button "Front Panel Controls — labelled diagram of every knob, button, and socket p.8 OmniPro 220 owner's manual Front Panel Controls — labelled diagram of every knob, button, and socket" [ref=e533] [cursor=pointer]:
+              - generic [ref=e534]:
+                - img "Front Panel Controls — labelled diagram of every knob, button, and socket" [ref=e535]
+                - generic [ref=e537]: p.8
+              - generic [ref=e538]:
+                - generic [ref=e539]: OmniPro 220 owner's manual
+                - generic [ref=e540]: Front Panel Controls — labelled diagram of every knob, button, and socket
+            - generic [ref=e542]:
+              - generic [ref=e543]:
+                - img [ref=e545]
+                - generic [ref=e548]:
+                  - generic [ref=e549]: OmniPro 220 front panel — every control
+                  - generic [ref=e551]: Labelled image
+                - button "Reload" [ref=e553] [cursor=pointer]:
+                  - img [ref=e554]
+              - generic [ref=e557]:
+                - iframe [ref=e558]:
+                  
+                - generic:
+                  - generic:
+                    - generic: rendering labelled image…
+    - generic [ref=e172]:
+      - generic [ref=e173]:
+        - textbox "Message" [ref=e174]
+        - generic: Which terminals do I plug the work clamp and torch into for TIG welding?
+      - generic [ref=e175]:
+        - generic [ref=e176]:
+          - button "Voice input" [ref=e177] [cursor=pointer]:
+            - img [ref=e178]
+          - button "Attach image (coming soon)" [disabled] [ref=e181]:
+            - img [ref=e182]
+        - button "Send" [disabled] [ref=e186]:
+          - img [ref=e187]

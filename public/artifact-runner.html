@@ -40,6 +40,1173 @@
   <body>
     <div id="root"></div>
 
+    <!--
+      Shared React template for kind="flowchart". The agent emits a small JSON
+      payload; this template renders the interactive stepper + collapsible
+      "Show full flow" overview. Keeping the UI here (rather than re-authoring
+      it on every flowchart emission) is what makes the flowchart kind fast,
+      cheap, and visually consistent.
+    -->
+    <script id="flowchart-template-tsx" type="text/tsx-template">
+import React, { useMemo, useState } from "react";
+
+type Branch = { label: string; next: string; detail?: string };
+type NodeBase = { title: string; detail?: string; citation?: string; warning?: string };
+type FlowNode =
+  | ({ kind: "question" } & NodeBase & { branches: Branch[] })
+  | ({ kind: "action" } & NodeBase & { next: string })
+  | ({ kind: "terminal" } & NodeBase & { outcome?: string });
+type Spec = {
+  title: string;
+  subtitle?: string;
+  start: string;
+  nodes: Record<string, FlowNode>;
+  citations?: string[];
+};
+
+const POSITIVE_OUTCOMES = /^(fixed|resolved|done|ok|good|complete|success|working)/i;
+
+function classNames(...xs: (string | false | null | undefined)[]) {
+  return xs.filter(Boolean).join(" ");
+}
+
+function Citation({ text }: { text: string }) {
+  return (
+    <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10.5px] tracking-wide text-zinc-400">
+      {text}
+    </span>
+  );
+}
+
+function WarningCallout({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-[12.5px] leading-relaxed text-amber-100">
+      <span className="mt-[1px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-500/25 font-semibold text-amber-200">
+        !
+      </span>
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function Header({ spec }: { spec: Spec }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div>
+        <div className="text-[18px] font-semibold leading-tight text-zinc-50">
+          {spec.title}
+        </div>
+        {spec.subtitle ? (
+          <div className="mt-1 text-[13px] leading-snug text-zinc-400">
+            {spec.subtitle}
+          </div>
+        ) : null}
+      </div>
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/[0.08] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-orange-300">
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-orange-400" />
+        interactive flow
+      </span>
+    </div>
+  );
+}
+
+function Breadcrumb({
+  path,
+  nodes,
+  onJump,
+  onReset,
+}: {
+  path: { nodeId: string; branchLabel: string }[];
+  nodes: Record<string, FlowNode>;
+  onJump: (idx: number) => void;
+  onReset: () => void;
+}) {
+  if (path.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5">
+      <span className="font-mono text-[9.5px] uppercase tracking-wider text-zinc-500">
+        path
+      </span>
+      {path.map((step, i) => {
+        const node = nodes[step.nodeId];
+        const short = (node?.title || step.nodeId).slice(0, 42);
+        return (
+          <button
+            key={i}
+            onClick={() => onJump(i)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-zinc-300 transition-colors hover:border-orange-500/40 hover:text-orange-200"
+            title={"Jump back to: " + short}
+          >
+            <span className="max-w-[160px] truncate">{short}</span>
+            <span className="text-zinc-600">·</span>
+            <span className="truncate font-medium text-zinc-400">{step.branchLabel}</span>
+          </button>
+        );
+      })}
+      <span className="text-zinc-600">→</span>
+      <span className="font-mono text-[10.5px] text-zinc-500">current</span>
+      <button
+        onClick={onReset}
+        className="ml-auto rounded-md px-2 py-0.5 text-[10.5px] font-medium text-zinc-400 transition-colors hover:text-orange-300"
+      >
+        Start over
+      </button>
+    </div>
+  );
+}
+
+function QuestionNode({
+  node,
+  onBranch,
+}: {
+  node: Extract<FlowNode, { kind: "question" }>;
+  onBranch: (label: string, nextId: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset]">
+      <div className="flex items-start gap-2">
+        <span className="mt-1 font-mono text-[10px] uppercase tracking-wider text-orange-400/90">
+          Question
+        </span>
+        {node.citation ? <Citation text={node.citation} /> : null}
+      </div>
+      <div className="mt-2 text-[17px] font-semibold leading-snug text-zinc-50">
+        {node.title}
+      </div>
+      {node.detail ? (
+        <div className="mt-2 text-[13.5px] leading-relaxed text-zinc-300">
+          {node.detail}
+        </div>
+      ) : null}
+      {node.warning ? (
+        <div className="mt-3">
+          <WarningCallout text={node.warning} />
+        </div>
+      ) : null}
+      <div className="mt-4 flex flex-col gap-2">
+        {node.branches.map((b, i) => (
+          <button
+            key={i}
+            onClick={() => onBranch(b.label, b.next)}
+            className="group flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.015] px-4 py-3 text-left transition-all hover:border-orange-500/50 hover:bg-orange-500/[0.04]"
+          >
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-medium text-zinc-100 group-hover:text-orange-100">
+                {b.label}
+              </div>
+              {b.detail ? (
+                <div className="mt-0.5 text-[12px] leading-snug text-zinc-400">
+                  {b.detail}
+                </div>
+              ) : null}
+            </div>
+            <span className="mt-0.5 shrink-0 text-[13px] text-zinc-500 transition-transform group-hover:translate-x-0.5 group-hover:text-orange-300">
+              →
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActionNode({
+  node,
+  onContinue,
+}: {
+  node: Extract<FlowNode, { kind: "action" }>;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <div className="flex items-start gap-2">
+        <span className="mt-1 font-mono text-[10px] uppercase tracking-wider text-sky-400/90">
+          Do this
+        </span>
+        {node.citation ? <Citation text={node.citation} /> : null}
+      </div>
+      <div className="mt-2 text-[16.5px] font-semibold leading-snug text-zinc-50">
+        {node.title}
+      </div>
+      {node.detail ? (
+        <div className="mt-2 text-[13.5px] leading-relaxed text-zinc-300">
+          {node.detail}
+        </div>
+      ) : null}
+      {node.warning ? (
+        <div className="mt-3">
+          <WarningCallout text={node.warning} />
+        </div>
+      ) : null}
+      <button
+        onClick={onContinue}
+        className="mt-4 inline-flex items-center gap-2 rounded-lg bg-orange-500/90 px-4 py-2 text-[13px] font-semibold text-zinc-900 transition-colors hover:bg-orange-400"
+      >
+        Continue <span>→</span>
+      </button>
+    </div>
+  );
+}
+
+function TerminalNode({
+  node,
+  onReset,
+}: {
+  node: Extract<FlowNode, { kind: "terminal" }>;
+  onReset: () => void;
+}) {
+  const positive = node.outcome ? POSITIVE_OUTCOMES.test(node.outcome) : false;
+  const tintBorder = positive ? "border-emerald-500/30" : "border-orange-500/30";
+  const tintBg = positive ? "bg-emerald-500/[0.05]" : "bg-orange-500/[0.04]";
+  const tintText = positive ? "text-emerald-300" : "text-orange-300";
+  const pillBg = positive ? "bg-emerald-500/20" : "bg-orange-500/20";
+  return (
+    <div className={classNames("rounded-2xl border p-5", tintBorder, tintBg)}>
+      <div className="flex items-start gap-2">
+        <span className={classNames("font-mono text-[10px] uppercase tracking-wider", tintText)}>
+          Resolution
+        </span>
+        {node.outcome ? (
+          <span className={classNames("rounded-full px-2 py-0.5 text-[10.5px] font-semibold", pillBg, tintText)}>
+            {node.outcome}
+          </span>
+        ) : null}
+        {node.citation ? <Citation text={node.citation} /> : null}
+      </div>
+      <div className="mt-2 text-[17px] font-semibold leading-snug text-zinc-50">
+        {node.title}
+      </div>
+      {node.detail ? (
+        <div className="mt-2 text-[13.5px] leading-relaxed text-zinc-300">
+          {node.detail}
+        </div>
+      ) : null}
+      {node.warning ? (
+        <div className="mt-3">
+          <WarningCallout text={node.warning} />
+        </div>
+      ) : null}
+      <button
+        onClick={onReset}
+        className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/[0.04] px-4 py-2 text-[13px] font-medium text-zinc-200 transition-colors hover:border-orange-500/40 hover:text-orange-200"
+      >
+        ↺ Start over
+      </button>
+    </div>
+  );
+}
+
+function OverviewLine({
+  id,
+  node,
+  depth,
+  isCurrent,
+  isVisited,
+  branchLabel,
+  onGoTo,
+}: {
+  id: string;
+  node: FlowNode;
+  depth: number;
+  isCurrent: boolean;
+  isVisited: boolean;
+  branchLabel?: string;
+  onGoTo: (id: string) => void;
+}) {
+  const kindColor =
+    node.kind === "question" ? "text-orange-300"
+    : node.kind === "action"   ? "text-sky-300"
+    :                            "text-emerald-300";
+  return (
+    <div
+      className={classNames(
+        "flex items-start gap-2 rounded-lg px-2 py-1 text-[12.5px] leading-snug transition-colors",
+        isCurrent ? "bg-orange-500/[0.12] ring-1 ring-orange-500/40" : "hover:bg-white/[0.03]",
+        !isCurrent && isVisited && "opacity-55",
+      )}
+      style={{ paddingLeft: 8 + depth * 16 }}
+    >
+      <span className={classNames("mt-[3px] font-mono text-[9.5px] uppercase tracking-wider", kindColor)}>
+        {node.kind === "question" ? "?" : node.kind === "action" ? "▸" : "●"}
+      </span>
+      <div className="min-w-0 flex-1">
+        {branchLabel ? (
+          <div className="font-mono text-[9.5px] uppercase tracking-wide text-zinc-500">
+            via {branchLabel}
+          </div>
+        ) : null}
+        <button
+          onClick={() => onGoTo(id)}
+          className="text-left text-zinc-200 transition-colors hover:text-orange-200"
+          title={"Jump to this node"}
+        >
+          {node.title}
+        </button>
+        {node.citation ? (
+          <span className="ml-1.5 font-mono text-[9.5px] text-zinc-500">{node.citation}</span>
+        ) : null}
+        {isCurrent ? (
+          <span className="ml-2 rounded-full bg-orange-500/25 px-1.5 py-[1px] font-mono text-[9px] uppercase tracking-wider text-orange-200">
+            you are here
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function FullFlowOverview({
+  spec,
+  currentId,
+  visitedIds,
+  onGoTo,
+}: {
+  spec: Spec;
+  currentId: string;
+  visitedIds: Set<string>;
+  onGoTo: (id: string) => void;
+}) {
+  // Depth-first render. Each node is rendered at most once; repeat visits are
+  // shown as a compact "→ id" reference so cycles and converging branches
+  // don't blow up the tree.
+  const lines: React.ReactNode[] = [];
+  const rendered = new Set<string>();
+
+  function walk(id: string, depth: number, branchLabel?: string) {
+    const node = spec.nodes[id];
+    if (!node) {
+      lines.push(
+        <div key={id + "-" + depth + "-missing"} className="px-2 py-1 text-[12px] text-red-300" style={{ paddingLeft: 8 + depth * 16 }}>
+          missing node: {id}
+        </div>,
+      );
+      return;
+    }
+    if (rendered.has(id)) {
+      lines.push(
+        <div
+          key={id + "-" + depth + "-ref"}
+          className="flex items-center gap-2 rounded-lg px-2 py-1 text-[11.5px] text-zinc-500"
+          style={{ paddingLeft: 8 + depth * 16 }}
+        >
+          {branchLabel ? (
+            <span className="font-mono text-[9.5px] uppercase tracking-wide text-zinc-600">
+              via {branchLabel}
+            </span>
+          ) : null}
+          <span>↺ back to "{node.title.slice(0, 40)}"</span>
+        </div>,
+      );
+      return;
+    }
+    rendered.add(id);
+    lines.push(
+      <OverviewLine
+        key={id + "-" + depth}
+        id={id}
+        node={node}
+        depth={depth}
+        isCurrent={id === currentId}
+        isVisited={visitedIds.has(id)}
+        branchLabel={branchLabel}
+        onGoTo={onGoTo}
+      />,
+    );
+    if (node.kind === "question") {
+      for (const b of node.branches) walk(b.next, depth + 1, b.label);
+    } else if (node.kind === "action") {
+      walk(node.next, depth + 1);
+    }
+  }
+
+  walk(spec.start, 0);
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-2">
+      <div className="flex flex-col gap-0.5">{lines}</div>
+    </div>
+  );
+}
+
+function Citations({ citations }: { citations: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-t border-white/5 pt-3 text-[11px] text-zinc-500">
+      <span className="font-mono text-[9.5px] uppercase tracking-wider">sources</span>
+      {citations.map((c, i) => (
+        <Citation key={i} text={c} />
+      ))}
+    </div>
+  );
+}
+
+export default function FlowchartTemplate({ spec }: { spec: Spec }) {
+  const [currentId, setCurrentId] = useState(spec.start);
+  const [path, setPath] = useState<{ nodeId: string; branchLabel: string }[]>([]);
+  const [showFull, setShowFull] = useState(false);
+
+  const currentNode = spec.nodes[currentId];
+  const visitedIds = useMemo(() => new Set(path.map((p) => p.nodeId)), [path]);
+
+  function goTo(branchLabel: string, nextId: string) {
+    setPath((p) => [...p, { nodeId: currentId, branchLabel }]);
+    setCurrentId(nextId);
+  }
+
+  function jumpBack(idx: number) {
+    const target = path[idx];
+    if (!target) return;
+    setPath(path.slice(0, idx));
+    setCurrentId(target.nodeId);
+  }
+
+  function reset() {
+    setPath([]);
+    setCurrentId(spec.start);
+  }
+
+  function jumpFromOverview(id: string) {
+    // Jumping from the overview clears breadcrumb (we can't reconstruct the
+    // path that led there), but keeps the user oriented.
+    setPath([]);
+    setCurrentId(id);
+  }
+
+  if (!currentNode) {
+    return (
+      <div className="artifact-err">
+        flowchart error: node "{currentId}" not found in spec
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col gap-4 text-zinc-200">
+      <Header spec={spec} />
+      <Breadcrumb path={path} nodes={spec.nodes} onJump={jumpBack} onReset={reset} />
+      {currentNode.kind === "question" ? (
+        <QuestionNode node={currentNode} onBranch={goTo} />
+      ) : currentNode.kind === "action" ? (
+        <ActionNode
+          node={currentNode}
+          onContinue={() => goTo("(continue)", currentNode.next)}
+        />
+      ) : (
+        <TerminalNode node={currentNode} onReset={reset} />
+      )}
+      <button
+        onClick={() => setShowFull((v) => !v)}
+        className="inline-flex items-center justify-center gap-2 self-center rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-[11.5px] font-medium text-zinc-400 transition-colors hover:border-orange-500/30 hover:text-orange-200"
+        aria-expanded={showFull}
+      >
+        <span>{showFull ? "▾" : "▸"}</span>
+        {showFull ? "Hide full flow" : "Show full flow"}
+        <span className="font-mono text-[10px] text-zinc-500">
+          ({Object.keys(spec.nodes).length} nodes)
+        </span>
+      </button>
+      {showFull ? (
+        <FullFlowOverview
+          spec={spec}
+          currentId={currentId}
+          visitedIds={visitedIds}
+          onGoTo={jumpFromOverview}
+        />
+      ) : null}
+      {spec.citations && spec.citations.length > 0 ? (
+        <Citations citations={spec.citations} />
+      ) : null}
+    </div>
+  );
+}
+    </script>
+
+    <!--
+      Shared React template for kind="procedure". The agent emits a small JSON
+      payload (ordered steps, each with a markdown body + optional manual page
+      image + optional warning); this template renders an interactive
+      Next/Previous stepper with progress bar, per-step image, and citations.
+      Same rationale as the flowchart template — the UI lives here, the agent
+      only writes the spec.
+    -->
+    <script id="procedure-template-tsx" type="text/tsx-template">
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { marked } from "marked";
+import { motion, AnimatePresence } from "framer-motion";
+
+type Step = {
+  title: string;
+  markdown: string;
+  imageUrl?: string;
+  imageCaption?: string;
+  citation?: string;
+  warning?: string;
+};
+
+type Spec = {
+  title: string;
+  subtitle?: string;
+  steps: Step[];
+  citations?: string[];
+};
+
+function cls(...xs: (string | false | null | undefined)[]) {
+  return xs.filter(Boolean).join(" ");
+}
+
+function Chip({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "sky" | "amber" }) {
+  const tones: Record<string, string> = {
+    neutral: "border-white/10 bg-white/[0.04] text-zinc-400",
+    sky: "border-sky-500/30 bg-sky-500/[0.09] text-sky-200",
+    amber: "border-amber-500/30 bg-amber-500/[0.09] text-amber-200",
+  };
+  return (
+    <span className={cls("inline-flex items-center rounded-md border px-1.5 py-0.5 font-mono text-[10.5px] tracking-wide", tones[tone])}>
+      {children}
+    </span>
+  );
+}
+
+function WarningCallout({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-3 text-[13px] leading-relaxed text-amber-100">
+      <span className="mt-[1px] inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/25 text-[13px] font-bold text-amber-200">
+        !
+      </span>
+      <div className="min-w-0">
+        <div className="mb-0.5 font-mono text-[9.5px] uppercase tracking-[0.12em] text-amber-300/80">
+          Warning
+        </div>
+        <div>{text}</div>
+      </div>
+    </div>
+  );
+}
+
+function Header({
+  spec,
+  idx,
+  completed,
+}: {
+  spec: Spec;
+  idx: number;
+  completed: boolean;
+}) {
+  const total = spec.steps.length;
+  const pct = completed ? 100 : ((idx + 1) / total) * 100;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="text-[20px] font-semibold leading-tight text-zinc-50">
+            {spec.title}
+          </div>
+          {spec.subtitle ? (
+            <div className="mt-1 text-[13px] leading-snug text-zinc-400">
+              {spec.subtitle}
+            </div>
+          ) : null}
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/[0.08] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-sky-200">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.6)]" />
+          step-by-step
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="font-mono text-[11px] uppercase tracking-wider text-zinc-500">
+          {completed
+            ? `${total} of ${total}`
+            : `${String(idx + 1).padStart(2, "0")} of ${String(total).padStart(2, "0")}`}
+        </div>
+        <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
+          <motion.div
+            initial={false}
+            animate={{ width: pct + "%" }}
+            transition={{ type: "spring", stiffness: 160, damping: 24 }}
+            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-sky-500 via-cyan-400 to-sky-400 shadow-[0_0_16px_rgba(56,189,248,0.55)]"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StepDots({
+  total,
+  idx,
+  maxVisited,
+  onJump,
+}: {
+  total: number;
+  idx: number;
+  maxVisited: number;
+  onJump: (i: number) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1.5">
+      {Array.from({ length: total }).map((_, i) => {
+        const isCurrent = i === idx;
+        const isVisited = i <= maxVisited;
+        return (
+          <button
+            key={i}
+            onClick={() => onJump(i)}
+            disabled={!isVisited && i !== idx + 1}
+            title={"Step " + (i + 1)}
+            aria-label={"Go to step " + (i + 1)}
+            className={cls(
+              "h-2 rounded-full transition-all duration-200",
+              isCurrent
+                ? "w-6 bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.6)]"
+                : isVisited
+                ? "w-2 bg-zinc-500 hover:bg-sky-300"
+                : "w-2 bg-white/10",
+              !isVisited && i !== idx + 1 && "cursor-not-allowed opacity-60",
+            )}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function StepImage({ url, caption }: { url: string; caption?: string }) {
+  const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  if (failed) return null;
+  return (
+    <figure className="my-0 flex flex-col gap-1.5">
+      <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30">
+        {!loaded ? (
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-white/[0.02] via-white/[0.04] to-white/[0.02]" />
+        ) : null}
+        <img
+          src={url}
+          alt={caption || ""}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          className={cls(
+            "mx-auto block max-h-[520px] w-auto max-w-full object-contain transition-opacity duration-300",
+            loaded ? "opacity-100" : "opacity-0",
+          )}
+        />
+      </div>
+      {caption ? (
+        <figcaption className="text-center font-mono text-[10.5px] uppercase tracking-wider text-zinc-500">
+          {caption}
+        </figcaption>
+      ) : null}
+    </figure>
+  );
+}
+
+function StepBody({ html }: { html: string }) {
+  return (
+    <div
+      className="prose prose-invert prose-sm max-w-none prose-p:my-2 prose-p:text-[13.5px] prose-p:leading-relaxed prose-p:text-zinc-300 prose-li:my-0.5 prose-li:text-[13.5px] prose-li:leading-relaxed prose-li:text-zinc-300 prose-strong:text-zinc-50 prose-code:rounded prose-code:bg-white/[0.06] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[12px] prose-code:font-medium prose-code:text-sky-200 prose-code:before:content-[''] prose-code:after:content-[''] prose-headings:mt-4 prose-headings:mb-2 prose-headings:text-zinc-50 prose-a:text-sky-300 prose-hr:my-4 prose-hr:border-white/10 prose-table:text-[12.5px]"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+function StepCard({ step, idx, total }: { step: Step; idx: number; total: number }) {
+  const html = useMemo(() => {
+    try {
+      return marked.parse(step.markdown || "", { async: false }) as string;
+    } catch {
+      return "";
+    }
+  }, [step.markdown]);
+
+  return (
+    <motion.div
+      key={idx}
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -24 }}
+      transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.035] to-white/[0.015] p-5 shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-sky-500/30 bg-sky-500/[0.08] font-mono text-[13px] font-semibold text-sky-200 shadow-[0_0_20px_rgba(56,189,248,0.15)]">
+            {String(idx + 1).padStart(2, "0")}
+          </span>
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-sky-300/80">
+              Step {idx + 1} of {total}
+            </div>
+          </div>
+        </div>
+        {step.citation ? <Chip tone="neutral">{step.citation}</Chip> : null}
+      </div>
+
+      <div className="mt-3 text-[18px] font-semibold leading-snug text-zinc-50">
+        {step.title}
+      </div>
+
+      {step.imageUrl ? (
+        <div className="mt-4">
+          <StepImage url={step.imageUrl} caption={step.imageCaption} />
+        </div>
+      ) : null}
+
+      <div className="mt-4">
+        <StepBody html={html} />
+      </div>
+
+      {step.warning ? (
+        <div className="mt-4">
+          <WarningCallout text={step.warning} />
+        </div>
+      ) : null}
+    </motion.div>
+  );
+}
+
+function CompletionCard({ spec, onRestart }: { spec: Spec; onRestart: () => void }) {
+  return (
+    <motion.div
+      key="complete"
+      initial={{ opacity: 0, y: 16, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -16 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className="rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/[0.08] to-emerald-500/[0.02] p-6 text-center"
+    >
+      <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.25)]">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </div>
+      <div className="mt-3 text-[17px] font-semibold text-zinc-50">All steps complete</div>
+      <div className="mt-1 text-[13px] text-zinc-400">
+        You walked through all {spec.steps.length} steps of "{spec.title}".
+      </div>
+      <button
+        onClick={onRestart}
+        className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/[0.04] px-4 py-2 text-[13px] font-medium text-zinc-200 transition-colors hover:border-sky-500/40 hover:text-sky-200"
+      >
+        <span>↺</span> Start over
+      </button>
+    </motion.div>
+  );
+}
+
+function Citations({ citations }: { citations: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-t border-white/5 pt-3 text-[11px] text-zinc-500">
+      <span className="font-mono text-[9.5px] uppercase tracking-wider">sources</span>
+      {citations.map((c, i) => (
+        <Chip key={i} tone="neutral">{c}</Chip>
+      ))}
+    </div>
+  );
+}
+
+export default function ProcedureTemplate({ spec }: { spec: Spec }) {
+  const total = spec.steps.length;
+  const [idx, setIdx] = useState(0);
+  const [completed, setCompleted] = useState(false);
+  const [maxVisited, setMaxVisited] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  function goTo(next: number) {
+    const clamped = Math.max(0, Math.min(total - 1, next));
+    setIdx(clamped);
+    setMaxVisited((m) => Math.max(m, clamped));
+    setCompleted(false);
+  }
+
+  function advance() {
+    if (idx >= total - 1) {
+      setMaxVisited(total - 1);
+      setCompleted(true);
+      return;
+    }
+    goTo(idx + 1);
+  }
+
+  function back() {
+    if (completed) {
+      setCompleted(false);
+      return;
+    }
+    if (idx > 0) goTo(idx - 1);
+  }
+
+  function restart() {
+    setIdx(0);
+    setMaxVisited(0);
+    setCompleted(false);
+  }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "ArrowRight" || e.key === "PageDown") {
+        e.preventDefault();
+        advance();
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        e.preventDefault();
+        back();
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        restart();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx, completed, total]);
+
+  // Scroll to top of card on step change so long-scroll steps don't trap you.
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [idx, completed]);
+
+  if (total === 0) {
+    return <div className="artifact-err">procedure error: no steps in spec</div>;
+  }
+
+  const step = spec.steps[idx];
+  const atStart = idx === 0 && !completed;
+  const atEnd = completed;
+
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col gap-5 pb-2 text-zinc-200">
+      <div ref={scrollRef} />
+      <Header spec={spec} idx={idx} completed={completed} />
+
+      <AnimatePresence mode="wait">
+        {completed ? (
+          <CompletionCard key="complete" spec={spec} onRestart={restart} />
+        ) : (
+          <StepCard key={"s-" + idx} step={step} idx={idx} total={total} />
+        )}
+      </AnimatePresence>
+
+      {/* Navigation bar */}
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2.5 backdrop-blur">
+        <button
+          onClick={back}
+          disabled={atStart}
+          className={cls(
+            "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium transition-all",
+            atStart
+              ? "cursor-not-allowed border-white/5 text-zinc-600"
+              : "border-white/10 text-zinc-200 hover:border-sky-500/40 hover:bg-sky-500/[0.06] hover:text-sky-100",
+          )}
+        >
+          <span>←</span> Back
+        </button>
+
+        <StepDots total={total} idx={completed ? total - 1 : idx} maxVisited={maxVisited} onJump={goTo} />
+
+        {atEnd ? (
+          <button
+            onClick={restart}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[12.5px] font-medium text-zinc-200 transition-colors hover:border-sky-500/40 hover:text-sky-200"
+          >
+            <span>↺</span> Restart
+          </button>
+        ) : (
+          <button
+            onClick={advance}
+            className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-b from-sky-400 to-sky-500 px-4 py-1.5 text-[12.5px] font-semibold text-zinc-950 shadow-[0_6px_20px_-6px_rgba(56,189,248,0.6)] transition-all hover:from-sky-300 hover:to-sky-400 hover:shadow-[0_8px_24px_-4px_rgba(56,189,248,0.75)] active:translate-y-px"
+          >
+            {idx === total - 1 ? (
+              <>
+                Finish <span>✓</span>
+              </>
+            ) : (
+              <>
+                Next <span>→</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* Keyboard hint */}
+      <div className="-mt-2 flex items-center justify-center gap-2 text-center font-mono text-[10px] uppercase tracking-wider text-zinc-600">
+        <kbd className="rounded border border-white/10 bg-white/[0.03] px-1.5 py-[1px]">←</kbd>
+        <kbd className="rounded border border-white/10 bg-white/[0.03] px-1.5 py-[1px]">→</kbd>
+        <span>navigate</span>
+      </div>
+
+      {spec.citations && spec.citations.length > 0 ? (
+        <Citations citations={spec.citations} />
+      ) : null}
+    </div>
+  );
+}
+    </script>
+
+    <!--
+      Shared React template for kind="image-labeling". The agent emits a small
+      JSON payload (image URL + pinned labels with x/y percentages + descriptions);
+      this template renders the image with numbered pin overlays and a
+      description panel below. Hovering or focusing a pin highlights the matching
+      description card (and vice versa); clicking either pins the selection so
+      the reader can take their hands off the mouse.
+    -->
+    <script id="image-labeling-template-tsx" type="text/tsx-template">
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+type Label = {
+  id: string;
+  x: number;
+  y: number;
+  title: string;
+  description: string;
+  citation?: string;
+};
+
+type Spec = {
+  title: string;
+  subtitle?: string;
+  imageUrl: string;
+  imageAlt: string;
+  labels: Label[];
+  citations?: string[];
+};
+
+function cls(...xs: (string | false | null | undefined)[]) {
+  return xs.filter(Boolean).join(" ");
+}
+
+function Chip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-zinc-300">
+      {children}
+    </span>
+  );
+}
+
+function Header({ spec }: { spec: Spec }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <div className="text-[20px] font-semibold leading-tight text-zinc-50">
+          {spec.title}
+        </div>
+        {spec.subtitle ? (
+          <div className="mt-1 text-[13px] leading-snug text-zinc-400">
+            {spec.subtitle}
+          </div>
+        ) : null}
+      </div>
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/[0.08] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-rose-200">
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
+        labelled diagram
+      </span>
+    </div>
+  );
+}
+
+// Rich hover/focus tooltip rendered next to the pin. Position flips to the
+// opposite side when the pin is near the image edge so the card stays
+// on-screen without any measurement gymnastics.
+function PinTooltip({ label, x, y }: { label: Label; x: number; y: number }) {
+  const placeRight = x < 60;
+  const placeBelow = y < 55;
+  const style: React.CSSProperties = {
+    [placeRight ? "left" : "right"]: "calc(100% + 10px)",
+    [placeBelow ? "top" : "bottom"]: "0",
+  };
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 4, scale: 0.96 }}
+      transition={{ duration: 0.14 }}
+      style={style}
+      className="pointer-events-none absolute z-10 w-64 rounded-xl border border-rose-400/40 bg-zinc-950/95 p-3 text-left shadow-[0_12px_40px_-8px_rgba(0,0,0,0.7)] backdrop-blur"
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1 text-[13.5px] font-semibold leading-snug text-zinc-50">
+          {label.title}
+        </div>
+        {label.citation ? <Chip>{label.citation}</Chip> : null}
+      </div>
+      <div className="mt-1.5 text-[12.5px] leading-relaxed text-zinc-300">
+        {label.description}
+      </div>
+    </motion.div>
+  );
+}
+
+function Pin({
+  label,
+  index,
+  active,
+  pinned,
+  onActivate,
+  onClear,
+  onPin,
+}: {
+  label: Label;
+  index: number;
+  active: boolean;
+  pinned: boolean;
+  onActivate: () => void;
+  onClear: () => void;
+  onPin: () => void;
+}) {
+  const x = Math.max(0, Math.min(100, label.x));
+  const y = Math.max(0, Math.min(100, label.y));
+  return (
+    <div
+      style={{ left: x + "%", top: y + "%", zIndex: active ? 40 : pinned ? 20 : 10 }}
+      className="absolute -translate-x-1/2 -translate-y-1/2"
+    >
+      <button
+        type="button"
+        onMouseEnter={onActivate}
+        onMouseLeave={onClear}
+        onFocus={onActivate}
+        onBlur={onClear}
+        onClick={onPin}
+        aria-label={"Label " + (index + 1) + ": " + label.title}
+        className="relative block cursor-pointer outline-none"
+      >
+        <motion.span
+          initial={false}
+          animate={{ scale: active ? 1.18 : 1 }}
+          transition={{ type: "spring", stiffness: 420, damping: 26 }}
+          className={cls(
+            "relative flex h-8 w-8 items-center justify-center rounded-full border-2 font-mono text-[12px] font-semibold shadow-lg transition-colors duration-150",
+            active
+              ? "border-rose-300 bg-rose-500/90 text-white shadow-[0_0_24px_rgba(244,63,94,0.55)]"
+              : pinned
+              ? "border-rose-400/70 bg-rose-500/70 text-white shadow-[0_0_16px_rgba(244,63,94,0.35)]"
+              : "border-white/80 bg-zinc-900/85 text-zinc-100 hover:border-rose-300 hover:text-white",
+          )}
+        >
+          {active ? (
+            <motion.span
+              layoutId="pin-ring"
+              className="absolute inset-0 rounded-full ring-2 ring-rose-300/70"
+              transition={{ type: "spring", stiffness: 420, damping: 30 }}
+            />
+          ) : null}
+          <span className="relative">{index + 1}</span>
+        </motion.span>
+      </button>
+      <AnimatePresence>
+        {active ? <PinTooltip label={label} x={x} y={y} /> : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ImageStage({
+  spec,
+  activeId,
+  pinnedId,
+  onHover,
+  onClear,
+  onPin,
+}: {
+  spec: Spec;
+  activeId: string | null;
+  pinnedId: string | null;
+  onHover: (id: string) => void;
+  onClear: () => void;
+  onPin: (id: string) => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="relative overflow-visible rounded-2xl border border-white/10 bg-black/30 shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset]">
+      {!loaded && !failed ? (
+        <div className="absolute inset-0 animate-pulse rounded-2xl bg-gradient-to-br from-white/[0.02] via-white/[0.04] to-white/[0.02]" />
+      ) : null}
+      {failed ? (
+        <div className="flex aspect-[4/3] items-center justify-center px-6 text-center font-mono text-[11px] text-zinc-500">
+          image failed to load: {spec.imageUrl}
+        </div>
+      ) : (
+        <div className="relative">
+          <img
+            src={spec.imageUrl}
+            alt={spec.imageAlt}
+            onLoad={() => setLoaded(true)}
+            onError={() => setFailed(true)}
+            draggable={false}
+            className={cls(
+              "mx-auto block max-h-[560px] w-full select-none rounded-2xl object-contain transition-opacity duration-300",
+              loaded ? "opacity-100" : "opacity-0",
+            )}
+          />
+          <div className="absolute inset-0">
+            {spec.labels.map((label, i) => (
+              <Pin
+                key={label.id}
+                label={label}
+                index={i}
+                active={activeId === label.id}
+                pinned={pinnedId === label.id}
+                onActivate={() => onHover(label.id)}
+                onClear={onClear}
+                onPin={() => onPin(label.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Citations({ citations }: { citations: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-t border-white/5 pt-3 text-[11px] text-zinc-500">
+      <span className="font-mono text-[9.5px] uppercase tracking-wider">sources</span>
+      {citations.map((c, i) => (
+        <Chip key={i}>{c}</Chip>
+      ))}
+    </div>
+  );
+}
+
+export default function ImageLabelingTemplate({ spec }: { spec: Spec }) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+
+  const activeId = hoveredId ?? pinnedId;
+
+  function togglePin(id: string) {
+    setPinnedId((cur) => (cur === id ? null : id));
+  }
+
+  if (!spec.labels || spec.labels.length === 0) {
+    return <div className="artifact-err">image-labeling error: no labels in spec</div>;
+  }
+
+  return (
+    <div className="mx-auto flex max-w-3xl flex-col gap-4 pb-2 text-zinc-200">
+      <Header spec={spec} />
+
+      <ImageStage
+        spec={spec}
+        activeId={activeId}
+        pinnedId={pinnedId}
+        onHover={setHoveredId}
+        onClear={() => setHoveredId(null)}
+        onPin={togglePin}
+      />
+
+      {spec.citations && spec.citations.length > 0 ? (
+        <Citations citations={spec.citations} />
+      ) : null}
+    </div>
+  );
+}
+    </script>
+
     <script type="importmap">
       {
         "imports": {
@@ -226,6 +1393,269 @@
         }
       }
 
+      // Lazy-loads a shared template (flowchart / procedure) from its embedded
+      // TSX <script> tag. Transforms once per iframe lifetime; subsequent
+      // renders reuse the same module.
+      const templateCache = {};
+      function getSharedTemplate(scriptId) {
+        if (templateCache[scriptId]) return templateCache[scriptId];
+        templateCache[scriptId] = (async () => {
+          const el = document.getElementById(scriptId);
+          if (!el) throw new Error(scriptId + " script tag not found");
+          const tsx = el.textContent || "";
+          const out = transform(tsx, {
+            transforms: ["typescript", "jsx"],
+            jsxRuntime: "classic",
+            production: true,
+          }).code;
+          const blob = new Blob([out], { type: "text/javascript" });
+          const url = URL.createObjectURL(blob);
+          try {
+            const mod = await import(url);
+            if (typeof mod.default !== "function") {
+              throw new Error(scriptId + " has no default export");
+            }
+            return mod.default;
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        })();
+        return templateCache[scriptId];
+      }
+
+      // Back-compat alias used by the existing flowchart path.
+      let flowchartTemplatePromise = null;
+      function getFlowchartTemplate() {
+        if (flowchartTemplatePromise) return flowchartTemplatePromise;
+        flowchartTemplatePromise = (async () => {
+          const el = document.getElementById("flowchart-template-tsx");
+          if (!el) throw new Error("flowchart template script tag not found");
+          const tsx = el.textContent || "";
+          const out = transform(tsx, {
+            transforms: ["typescript", "jsx"],
+            jsxRuntime: "classic",
+            production: true,
+          }).code;
+          const blob = new Blob([out], { type: "text/javascript" });
+          const url = URL.createObjectURL(blob);
+          try {
+            const mod = await import(url);
+            if (typeof mod.default !== "function") {
+              throw new Error("flowchart template has no default export");
+            }
+            return mod.default;
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        })();
+        return flowchartTemplatePromise;
+      }
+
+      // Lightweight defence-in-depth validation — the backend already validates
+      // against the zod schema, but the iframe may receive stale or malformed
+      // payloads (manual edits, standalone downloads). Surface a clear error
+      // rather than letting the template crash inside render.
+      function validateFlowchartSpec(spec) {
+        if (!spec || typeof spec !== "object") return "spec must be an object";
+        if (typeof spec.title !== "string" || !spec.title) return "missing title";
+        if (typeof spec.start !== "string" || !spec.start) return "missing start";
+        if (!spec.nodes || typeof spec.nodes !== "object") return "missing nodes";
+        const ids = new Set(Object.keys(spec.nodes));
+        if (!ids.has(spec.start)) return 'start "' + spec.start + '" not in nodes';
+        for (const [id, node] of Object.entries(spec.nodes)) {
+          if (!node || typeof node !== "object") return 'node "' + id + '" is not an object';
+          const kind = node.kind;
+          if (kind !== "question" && kind !== "action" && kind !== "terminal") {
+            return 'node "' + id + '" has invalid kind: ' + kind;
+          }
+          if (typeof node.title !== "string" || !node.title) return 'node "' + id + '" missing title';
+          if (kind === "question") {
+            if (!Array.isArray(node.branches) || node.branches.length < 2) {
+              return 'node "' + id + '" needs >= 2 branches';
+            }
+            for (const [i, b] of node.branches.entries()) {
+              if (!b || typeof b.label !== "string" || typeof b.next !== "string") {
+                return 'node "' + id + '" branch[' + i + '] malformed';
+              }
+              if (!ids.has(b.next)) return 'node "' + id + '" branch[' + i + '] -> "' + b.next + '" not defined';
+            }
+          } else if (kind === "action") {
+            if (typeof node.next !== "string") return 'node "' + id + '" missing next';
+            if (!ids.has(node.next)) return 'node "' + id + '" next -> "' + node.next + '" not defined';
+          }
+        }
+        return null;
+      }
+
+      function validateImageLabelingSpec(spec) {
+        if (!spec || typeof spec !== "object") return "spec must be an object";
+        if (typeof spec.title !== "string" || !spec.title) return "missing title";
+        if (typeof spec.imageUrl !== "string" || !spec.imageUrl) return "missing imageUrl";
+        if (typeof spec.imageAlt !== "string" || !spec.imageAlt) return "missing imageAlt";
+        if (!Array.isArray(spec.labels) || spec.labels.length === 0) return "missing or empty labels[]";
+        const seen = new Set();
+        for (const [i, l] of spec.labels.entries()) {
+          if (!l || typeof l !== "object") return "labels[" + i + "] is not an object";
+          if (typeof l.id !== "string" || !l.id) return "labels[" + i + "] missing id";
+          if (seen.has(l.id)) return "labels[" + i + "].id \"" + l.id + "\" is duplicated";
+          seen.add(l.id);
+          if (typeof l.x !== "number" || l.x < 0 || l.x > 100) return "labels[" + i + "].x must be a number in 0–100";
+          if (typeof l.y !== "number" || l.y < 0 || l.y > 100) return "labels[" + i + "].y must be a number in 0–100";
+          if (typeof l.title !== "string" || !l.title) return "labels[" + i + "] missing title";
+          if (typeof l.description !== "string" || !l.description) return "labels[" + i + "] missing description";
+        }
+        return null;
+      }
+
+      async function renderImageLabeling(code) {
+        unmount();
+        let spec;
+        try {
+          spec = JSON.parse(code);
+        } catch (err) {
+          renderError("image-labeling: invalid JSON — " + (err?.message || err));
+          return;
+        }
+        const invalid = validateImageLabelingSpec(spec);
+        if (invalid) {
+          renderError("image-labeling: " + invalid);
+          return;
+        }
+        let Template;
+        try {
+          Template = await getSharedTemplate("image-labeling-template-tsx");
+        } catch (err) {
+          renderError("image-labeling template load failed: " + (err?.message || err));
+          return;
+        }
+
+        class Boundary extends React.Component {
+          constructor(p) { super(p); this.state = { err: null }; }
+          static getDerivedStateFromError(err) { return { err }; }
+          componentDidCatch(err) { post({ type: "error", message: String(err?.stack || err) }); }
+          render() {
+            if (this.state.err) {
+              return React.createElement("pre", { className: "artifact-err" }, String(this.state.err.stack || this.state.err));
+            }
+            return this.props.children;
+          }
+        }
+
+        try {
+          currentRoot = createRoot(rootEl);
+          currentRoot.render(
+            React.createElement(Boundary, null, React.createElement(Template, { spec })),
+          );
+          post({ type: "rendered", kind: "image-labeling" });
+        } catch (err) {
+          renderError("render: " + (err?.message || err));
+        }
+      }
+
+      function validateProcedureSpec(spec) {
+        if (!spec || typeof spec !== "object") return "spec must be an object";
+        if (typeof spec.title !== "string" || !spec.title) return "missing title";
+        if (!Array.isArray(spec.steps) || spec.steps.length === 0) return "missing or empty steps[]";
+        for (const [i, s] of spec.steps.entries()) {
+          if (!s || typeof s !== "object") return "step[" + i + "] is not an object";
+          if (typeof s.title !== "string" || !s.title) return "step[" + i + "] missing title";
+          if (typeof s.markdown !== "string" || !s.markdown) return "step[" + i + "] missing markdown";
+          if (s.imageUrl != null && typeof s.imageUrl !== "string") return "step[" + i + "] imageUrl must be a string";
+          if (s.warning != null && typeof s.warning !== "string") return "step[" + i + "] warning must be a string";
+        }
+        return null;
+      }
+
+      async function renderProcedure(code) {
+        unmount();
+        let spec;
+        try {
+          spec = JSON.parse(code);
+        } catch (err) {
+          renderError("procedure: invalid JSON — " + (err?.message || err));
+          return;
+        }
+        const invalid = validateProcedureSpec(spec);
+        if (invalid) {
+          renderError("procedure: " + invalid);
+          return;
+        }
+        let Template;
+        try {
+          Template = await getSharedTemplate("procedure-template-tsx");
+        } catch (err) {
+          renderError("procedure template load failed: " + (err?.message || err));
+          return;
+        }
+
+        class Boundary extends React.Component {
+          constructor(p) { super(p); this.state = { err: null }; }
+          static getDerivedStateFromError(err) { return { err }; }
+          componentDidCatch(err) { post({ type: "error", message: String(err?.stack || err) }); }
+          render() {
+            if (this.state.err) {
+              return React.createElement("pre", { className: "artifact-err" }, String(this.state.err.stack || this.state.err));
+            }
+            return this.props.children;
+          }
+        }
+
+        try {
+          currentRoot = createRoot(rootEl);
+          currentRoot.render(
+            React.createElement(Boundary, null, React.createElement(Template, { spec })),
+          );
+          post({ type: "rendered", kind: "procedure" });
+        } catch (err) {
+          renderError("render: " + (err?.message || err));
+        }
+      }
+
+      async function renderFlowchart(code) {
+        unmount();
+        let spec;
+        try {
+          spec = JSON.parse(code);
+        } catch (err) {
+          renderError("flowchart: invalid JSON — " + (err?.message || err));
+          return;
+        }
+        const invalid = validateFlowchartSpec(spec);
+        if (invalid) {
+          renderError("flowchart: " + invalid);
+          return;
+        }
+        let Template;
+        try {
+          Template = await getFlowchartTemplate();
+        } catch (err) {
+          renderError("flowchart template load failed: " + (err?.message || err));
+          return;
+        }
+
+        class Boundary extends React.Component {
+          constructor(p) { super(p); this.state = { err: null }; }
+          static getDerivedStateFromError(err) { return { err }; }
+          componentDidCatch(err) { post({ type: "error", message: String(err?.stack || err) }); }
+          render() {
+            if (this.state.err) {
+              return React.createElement("pre", { className: "artifact-err" }, String(this.state.err.stack || this.state.err));
+            }
+            return this.props.children;
+          }
+        }
+
+        try {
+          currentRoot = createRoot(rootEl);
+          currentRoot.render(
+            React.createElement(Boundary, null, React.createElement(Template, { spec })),
+          );
+          post({ type: "rendered", kind: "flowchart" });
+        } catch (err) {
+          renderError("render: " + (err?.message || err));
+        }
+      }
+
       async function handle(msg) {
         if (!msg || msg.__artifact === true) return; // ignore our own echoes
         const t = msg.type;
@@ -237,6 +1667,9 @@
             if (kind === "mermaid") return renderMermaid(code || "");
             if (kind === "markdown") return renderMarkdown(code || "");
             if (kind === "react") return renderReact(code || "");
+            if (kind === "flowchart") return renderFlowchart(code || "");
+            if (kind === "procedure") return renderProcedure(code || "");
+            if (kind === "image-labeling") return renderImageLabeling(code || "");
             renderError("unknown artifact kind: " + kind);
           } catch (err) {
             renderError(String(err?.stack || err));

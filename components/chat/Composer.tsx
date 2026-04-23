@@ -1,10 +1,14 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUp, Square, Paperclip, Sparkles } from "lucide-react";
+import { ArrowUp, Square, Paperclip, Sparkles, X } from "lucide-react";
 import { VoiceButton } from "./VoiceButton";
+import type { ImageAttachment } from "@/lib/client/chat-types";
 import { cn } from "@/lib/utils";
 import { ease } from "@/lib/ui/motion";
+
+const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024; // 8 MB — base64-inflated, still fits comfortably in Anthropic's 5MB-per-image budget.
 
 /**
  * Primary-surface chat composer. Floating glass card, rotating placeholder,
@@ -19,6 +23,9 @@ export function Composer({
   onVoiceTranscript,
   placeholders,
   busy,
+  attachment,
+  onAttach,
+  onClearAttachment,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -27,11 +34,16 @@ export function Composer({
   onVoiceTranscript: (t: string) => void;
   placeholders: string[];
   busy: boolean;
+  attachment: ImageAttachment | null;
+  onAttach: (att: ImageAttachment) => void;
+  onClearAttachment: () => void;
 }) {
   const [focused, setFocused] = useState(false);
   const [phIndex, setPhIndex] = useState(0);
   const [showHint, setShowHint] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const effectivePlaceholders = useMemo(() => {
     const defaults = [
@@ -77,7 +89,40 @@ export function Composer({
     el.style.height = `${Math.max(next, 44)}px`;
   }, [value]);
 
-  const canSend = !busy && value.trim().length > 0;
+  const canSend = !busy && (value.trim().length > 0 || !!attachment);
+
+  const pickImage = () => {
+    if (busy) return;
+    setAttachError(null);
+    fileInputRef.current?.click();
+  };
+
+  const handleFile = (file: File) => {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type as typeof ACCEPTED_IMAGE_TYPES[number])) {
+      setAttachError("Unsupported format. Use PNG, JPEG, WebP, or GIF.");
+      return;
+    }
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      setAttachError(`Image is ${(file.size / 1024 / 1024).toFixed(1)} MB — 8 MB max.`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = typeof reader.result === "string" ? reader.result : "";
+      if (!src) {
+        setAttachError("Couldn't read the file.");
+        return;
+      }
+      onAttach({
+        id: Math.random().toString(36).slice(2, 10),
+        src,
+        mediaType: file.type as ImageAttachment["mediaType"],
+        name: file.name,
+      });
+    };
+    reader.onerror = () => setAttachError("Couldn't read the file.");
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="px-3 pb-4 pt-2 sm:px-4">
@@ -95,12 +140,61 @@ export function Composer({
           }}
         />
 
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPTED_IMAGE_TYPES.join(",")}
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFile(f);
+            // Reset so picking the same file twice still fires change.
+            e.target.value = "";
+          }}
+        />
+
         <div
           className={cn(
             "relative flex flex-col overflow-hidden rounded-2xl border bg-surface-2/85 backdrop-blur-xl transition-colors",
             focused ? "border-primary/60" : "border-border",
           )}
         >
+          <AnimatePresence>
+            {attachment && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden border-b border-border-subtle/60 bg-surface-1/40 px-3 pt-3"
+              >
+                <div className="mb-2 inline-flex max-w-full items-center gap-2 rounded-xl border border-border-subtle bg-surface-2 py-1.5 pl-1.5 pr-2 shadow-soft">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={attachment.src}
+                    alt={attachment.name || "Attached image"}
+                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                  />
+                  <div className="min-w-0">
+                    <div className="truncate text-[12px] font-medium text-fg">
+                      {attachment.name || "image"}
+                    </div>
+                    <div className="font-mono text-[10px] text-fg-dim">
+                      {attachment.mediaType.replace("image/", "").toUpperCase()} · attached
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClearAttachment}
+                    aria-label="Remove attachment"
+                    className="ml-1 grid h-6 w-6 shrink-0 place-items-center rounded-md text-fg-dim transition-colors hover:bg-surface-3/70 hover:text-fg"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Placeholder layer — visible only when empty */}
           <div className="relative">
             <textarea
@@ -142,10 +236,16 @@ export function Composer({
               <VoiceButton onTranscript={onVoiceTranscript} disabled={busy} />
               <button
                 type="button"
-                disabled
-                title="Image input — coming soon"
-                aria-label="Attach image (coming soon)"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-fg-dim transition-colors hover:bg-surface-3/70 hover:text-fg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={pickImage}
+                disabled={busy}
+                title={attachment ? "Replace attached image" : "Attach an image"}
+                aria-label={attachment ? "Replace attached image" : "Attach an image"}
+                className={cn(
+                  "inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                  attachment
+                    ? "bg-primary/15 text-primary hover:bg-primary/25"
+                    : "text-fg-dim hover:bg-surface-3/70 hover:text-fg-muted",
+                )}
               >
                 <Paperclip className="h-4 w-4" />
               </button>
@@ -191,6 +291,22 @@ export function Composer({
             </div>
           </div>
         </div>
+
+        <AnimatePresence>
+          {attachError && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              onAnimationComplete={() => {
+                setTimeout(() => setAttachError(null), 3200);
+              }}
+              className="mt-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-[11.5px] text-red-300"
+            >
+              {attachError}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {showHint && (
