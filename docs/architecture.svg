@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 860" role="img" aria-labelledby="t">
+  <title id="t">Architecture — a question flows from the client to the agent, which uses tools and specialist models to query a pre-ingested knowledge layer, and streams back prose, a cited page, and an interactive artifact.</title>
+
+  <defs>
+    <style>
+      .label { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", Helvetica, Arial, sans-serif; }
+      .title-lg  { font-weight: 600; font-size: 20px; letter-spacing: 0.005em; }
+      .head      { font-weight: 600; font-size: 16px; }
+      .subhead   { font-weight: 600; font-size: 13px; }
+      .body      { font-size: 12.5px; opacity: 0.82; }
+      .caption   { font-size: 11.5px; opacity: 0.58; }
+      .kbd       { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; }
+      .kbd-sm    { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 10.5px; }
+      .badge     { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+
+      .fg         { fill: #111827; }
+      .fg-muted   { fill: #4b5563; }
+
+      .band       { fill: rgba(130,130,130,0.04); stroke: rgba(130,130,130,0.22); stroke-width: 1; }
+      .band-core  { fill: rgba(130,130,130,0.07); stroke: rgba(130,130,130,0.3);  stroke-width: 1; }
+
+      .card       { fill: rgba(130,130,130,0.06); stroke: rgba(130,130,130,0.3);  stroke-width: 1; }
+      .chip       { fill: rgba(130,130,130,0.1);  stroke: rgba(130,130,130,0.32); stroke-width: 1; }
+      .hub        { fill: rgba(234,88,12,0.08);   stroke: rgba(234,88,12,0.5);    stroke-width: 1.25; }
+
+      .accent     { fill: #ea580c; }
+      .blue       { fill: #3b82f6; }
+
+      .line       { stroke: rgba(130,130,130,0.7);  fill: none; stroke-width: 1.4; }
+      .line-thin  { stroke: rgba(130,130,130,0.45); fill: none; stroke-width: 1; }
+      .line-accent{ stroke: rgba(234,88,12,0.7);    fill: none; stroke-width: 1.4; }
+      .line-blue  { stroke: rgba(59,130,246,0.65);  fill: none; stroke-width: 1.4; }
+      .link-dot   { stroke: rgba(130,130,130,0.4);  fill: none; stroke-width: 1; stroke-dasharray: 3 4; }
+
+      @media (prefers-color-scheme: dark) {
+        .fg       { fill: #f3f4f6; }
+        .fg-muted { fill: #9ca3af; }
+      }
+    </style>
+
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="rgba(130,130,130,0.9)"/>
+    </marker>
+    <marker id="arr-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="rgba(234,88,12,0.85)"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="rgba(59,130,246,0.85)"/>
+    </marker>
+  </defs>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- TITLE                                                             -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <text x="40" y="46" class="label fg title-lg">How a question becomes an answer</text>
+  <text x="40" y="70" class="label fg-muted body">One HTTP round-trip · a streaming reply · grounded prose, a cited page, and an interactive artifact — all in one turn.</text>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- BAND 1 · CLIENT     (40,100) → (1240,240),  h=140                 -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(40,100)">
+    <rect width="1200" height="140" rx="16" class="band"/>
+    <text x="20" y="26" class="label blue badge">browser · next.js · adapts to phone + laptop</text>
+
+    <!-- Input bubble:   (20, 52)  →  (400, 108).   w=380 h=56.   center = (210, 80) local -->
+    <g transform="translate(20,52)">
+      <rect width="380" height="56" rx="12" class="card"/>
+      <text x="20" y="24" class="label fg-muted caption">user</text>
+      <text x="20" y="44" class="label fg body">“settings for 3/16″ mild steel at 240V…”</text>
+    </g>
+
+    <!-- Output chips: 3 × (200 × 56) right-aligned with 12 gaps.
+         Total = 3*200 + 2*12 = 624.
+         First chip x = 1180 − 624 = 556.
+         Chip 1: 556 → 756, center 656
+         Chip 2: 768 → 968, center 868
+         Chip 3: 980 → 1180, center 1080
+    -->
+    <g transform="translate(556,52)">
+      <rect width="200" height="56" rx="12" class="card"/>
+      <text x="100" y="24" class="label fg subhead" text-anchor="middle">Chat</text>
+      <text x="100" y="42" class="label fg-muted caption" text-anchor="middle">prose with inline citations</text>
+    </g>
+    <g transform="translate(768,52)">
+      <rect width="200" height="56" rx="12" class="card"/>
+      <text x="100" y="24" class="label fg subhead" text-anchor="middle">Source viewer</text>
+      <text x="100" y="42" class="label fg-muted caption" text-anchor="middle">page or cropped region</text>
+    </g>
+    <g transform="translate(980,52)">
+      <rect width="200" height="56" rx="12" class="card"/>
+      <text x="100" y="24" class="label fg subhead" text-anchor="middle">Artifact panel</text>
+      <text x="100" y="42" class="label fg-muted caption" text-anchor="middle">sandboxed iframe</text>
+    </g>
+  </g>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- ARROWS · client ↔ server    (y = 208 → 286)                       -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+
+  <!-- Down:   input bubble bottom-center = (40+20+190, 100+108) = (250, 208)  →  (250, 284). -->
+  <g class="line-accent" marker-end="url(#arr-orange)">
+    <line x1="250" y1="214" x2="250" y2="282"/>
+  </g>
+  <text x="264" y="252" class="label accent kbd">POST /api/chat</text>
+
+  <!-- Up (x3):  chip bottoms at (696, 208) / (908, 208) / (1120, 208), targets on band 2 top (y=286).
+       Absolute chip centers: 40 + 656 = 696;  40 + 868 = 908;  40 + 1080 = 1120.  -->
+  <g class="line-blue" marker-end="url(#arr-blue)">
+    <line x1="696"  y1="282" x2="696"  y2="214"/>
+    <line x1="908"  y1="282" x2="908"  y2="214"/>
+    <line x1="1120" y1="282" x2="1120" y2="214"/>
+  </g>
+  <text x="802" y="252" class="label blue kbd" text-anchor="middle">streaming response</text>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- BAND 2 · AGENT      (40,290) → (1240,580),  h=290                 -->
+  <!-- Inner layout uses these columns (local coords):                   -->
+  <!--   Tools:        x=  20 → 420   (w=400)                            -->
+  <!--   Orchestrator: x= 440 → 760   (w=320)                            -->
+  <!--   Specialists:  x= 780 → 1180  (w=400)                            -->
+  <!--   Content y:   54 → 266       (h=212)                             -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(40,290)">
+    <rect width="1200" height="290" rx="16" class="band-core"/>
+    <text x="20" y="30" class="label fg-muted badge">server · agent runtime · /api/chat</text>
+
+    <!-- ─────── TOOLS (left column) ─────── -->
+    <g transform="translate(20,54)">
+      <rect width="400" height="212" rx="12" class="card"/>
+      <text x="20" y="30" class="label fg subhead">Tools</text>
+      <text x="20" y="48" class="label fg-muted caption">seven tools · in-process MCP server</text>
+
+      <!-- 2 × 4 chip grid.  chip 165w × 26h, gap 10.
+           2*165+10 = 340, panel inner w = 400, so left pad (400-340)/2 = 30.
+           Rows at y = 72, 106, 140, 174. Last row has 1 chip (left) + empty (right). -->
+      <g transform="translate(30,72)">
+        <g>
+          <rect width="165" height="26" rx="8" class="chip"/>
+          <text x="14" y="18" class="label fg kbd">search</text>
+        </g>
+        <g transform="translate(175,0)">
+          <rect width="165" height="26" rx="8" class="chip"/>
+          <text x="14" y="18" class="label fg kbd">open_page</text>
+        </g>
+      </g>
+      <g transform="translate(30,106)">
+        <g>
+          <rect width="165" height="26" rx="8" class="chip"/>
+          <text x="14" y="18" class="label fg kbd">crop_region</text>
+        </g>
+        <g transform="translate(175,0)">
+          <rect width="165" height="26" rx="8" class="chip"/>
+          <text x="14" y="18" class="label fg kbd">show_source</text>
+        </g>
+      </g>
+      <g transform="translate(30,140)">
+        <g>
+          <rect width="165" height="26" rx="8" class="chip"/>
+          <text x="14" y="18" class="label fg kbd">emit_artifact</text>
+        </g>
+        <g transform="translate(175,0)">
+          <rect width="165" height="26" rx="8" class="chip"/>
+          <text x="14" y="18" class="label fg kbd">ask_user</text>
+        </g>
+      </g>
+      <g transform="translate(117.5,174)">
+        <rect width="165" height="26" rx="8" class="chip"/>
+        <text x="82.5" y="18" class="label fg kbd" text-anchor="middle">list_documents</text>
+      </g>
+    </g>
+
+    <!-- ─────── ORCHESTRATOR (middle, hub) ─────── -->
+    <g transform="translate(440,54)">
+      <rect width="320" height="212" rx="14" class="hub"/>
+      <!-- top accent badge -->
+      <g transform="translate(94,18)">
+        <rect width="132" height="22" rx="11" fill="rgba(234,88,12,0.14)" stroke="rgba(234,88,12,0.55)" stroke-width="1"/>
+        <text x="66" y="15" class="label accent badge" text-anchor="middle">claude agent sdk</text>
+      </g>
+      <text x="160" y="78" class="label fg head" style="font-size:18px;" text-anchor="middle">Orchestrator</text>
+      <text x="160" y="98" class="label fg-muted caption" text-anchor="middle">sonnet · query() loop</text>
+
+      <line x1="40" y1="118" x2="280" y2="118" class="line-thin"/>
+
+      <text x="160" y="144" class="label fg-muted body" text-anchor="middle">plans · calls tools · composes</text>
+      <text x="160" y="164" class="label fg-muted body" text-anchor="middle">expands into paraphrases</text>
+      <text x="160" y="184" class="label fg-muted body" text-anchor="middle">streams events as they happen</text>
+    </g>
+
+    <!-- ─────── SPECIALIST CALLS (right column) ─────── -->
+    <g transform="translate(780,54)">
+      <rect width="400" height="212" rx="12" class="card"/>
+      <text x="20" y="30" class="label fg subhead">Specialist calls</text>
+      <text x="20" y="48" class="label fg-muted caption">the right model per role</text>
+
+      <!-- 3 cards × (360 × 40), gap 10.  y = 72, 122, 172. -->
+      <g transform="translate(20,72)">
+        <rect width="360" height="40" rx="10" class="chip"/>
+        <g transform="translate(14,24)">
+          <rect width="44" height="16" rx="4" fill="rgba(234,88,12,0.14)" stroke="rgba(234,88,12,0.4)" stroke-width="1" y="-12"/>
+          <text x="22" y="0" class="label accent kbd-sm" text-anchor="middle">opus</text>
+        </g>
+        <text x="72" y="20" class="label fg body">vision · region crop</text>
+        <text x="14" y="34" class="label fg-muted caption">locates the exact pixels to cite</text>
+      </g>
+      <g transform="translate(20,122)">
+        <rect width="360" height="40" rx="10" class="chip"/>
+        <g transform="translate(14,24)">
+          <rect width="44" height="16" rx="4" fill="rgba(234,88,12,0.14)" stroke="rgba(234,88,12,0.4)" stroke-width="1" y="-12"/>
+          <text x="22" y="0" class="label accent kbd-sm" text-anchor="middle">opus</text>
+        </g>
+        <text x="72" y="20" class="label fg body">artifact codegen</text>
+        <text x="14" y="34" class="label fg-muted caption">TSX · SVG · Mermaid · HTML</text>
+      </g>
+      <g transform="translate(20,172)">
+        <rect width="360" height="40" rx="10" class="chip"/>
+        <g transform="translate(14,24)">
+          <rect width="44" height="16" rx="4" fill="rgba(130,130,130,0.18)" stroke="rgba(130,130,130,0.5)" stroke-width="1" y="-12"/>
+          <text x="22" y="0" class="label fg kbd-sm" text-anchor="middle">haiku</text>
+        </g>
+        <text x="72" y="20" class="label fg body">memory extraction</text>
+        <text x="14" y="34" class="label fg-muted caption">per-turn user-profile update</text>
+      </g>
+    </g>
+
+    <!-- ─────── intra-band connectors ─────── -->
+    <!-- Tools ↔ Orchestrator: small bidirectional pair at y = 160 (vertical mid of panels).
+         Tools right edge (local) = 420;  orchestrator left edge = 440;  gap = 20. -->
+    <g>
+      <line x1="424" y1="150" x2="438" y2="150" class="line" marker-end="url(#arr)"/>
+      <line x1="438" y1="172" x2="424" y2="172" class="line" marker-end="url(#arr)"/>
+    </g>
+
+    <!-- Orchestrator ↔ Specialists: same pattern on the right.
+         Orchestrator right edge = 760;  specialists left edge = 780;  gap = 20. -->
+    <g>
+      <line x1="762" y1="150" x2="776" y2="150" class="line-accent" marker-end="url(#arr-orange)"/>
+      <line x1="776" y1="172" x2="762" y2="172" class="line-accent" marker-end="url(#arr-orange)"/>
+    </g>
+  </g>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- ARROWS · agent → knowledge   (y = 580 → 620)                      -->
+  <!--    targets = absolute card centers in band 3 (below)              -->
+  <!--    card 1 center x = 40 + 15 + 185 = 240                          -->
+  <!--    card 2 center x = 40 + 415 + 185 = 640                         -->
+  <!--    card 3 center x = 40 + 815 + 185 = 1040                        -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <g class="line" marker-end="url(#arr)">
+    <line x1="240"  y1="582" x2="240"  y2="618"/>
+    <line x1="640"  y1="582" x2="640"  y2="618"/>
+    <line x1="1040" y1="582" x2="1040" y2="618"/>
+  </g>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- BAND 3 · KNOWLEDGE   (40,620) → (1240,800),  h=180                -->
+  <!-- Inner columns (local):                                            -->
+  <!--    Card 1: x= 15 → 385  (w=370)   center 200                      -->
+  <!--    Card 2: x=415 → 785  (w=370)   center 600                      -->
+  <!--    Card 3: x=815 →1185  (w=370)   center 1000                     -->
+  <!--    Card body y = 50 → 158  (h=108)                                -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <g transform="translate(40,620)">
+    <rect width="1200" height="180" rx="16" class="band"/>
+    <text x="20" y="30" class="label fg-muted badge">knowledge · ingested once · no runtime db</text>
+
+    <!-- Card 1: BM25 index -->
+    <g transform="translate(15,50)">
+      <rect width="370" height="108" rx="12" class="card"/>
+      <text x="20" y="28" class="label fg subhead">BM25 index</text>
+      <text x="20" y="46" class="label fg-muted caption">field-boosted · Porter-stemmed</text>
+      <g class="label fg-muted kbd-sm" transform="translate(20,58)">
+        <text y="12">table_titles · 2.5×</text>
+        <text y="28">keywords · 2.2×</text>
+        <text y="44">figure_text · 1.8×</text>
+      </g>
+    </g>
+
+    <!-- Card 2: Page images -->
+    <g transform="translate(415,50)">
+      <rect width="370" height="108" rx="12" class="card"/>
+      <text x="20" y="28" class="label fg subhead">Page images</text>
+      <text x="20" y="46" class="label fg-muted caption">one PNG per page · loaded on demand</text>
+      <text x="20" y="74"  class="label fg-muted body">returned to the agent as image content</text>
+      <text x="20" y="92"  class="label fg-muted body">so the model re-reads the diagram</text>
+    </g>
+
+    <!-- Card 3: Per-page records -->
+    <g transform="translate(815,50)">
+      <rect width="370" height="108" rx="12" class="card"/>
+      <text x="20" y="28" class="label fg subhead">Per-page records</text>
+      <text x="20" y="46" class="label fg-muted caption">from the vision ingest</text>
+      <text x="20" y="74"  class="label fg-muted body">summaries · figure captions · cells ·</text>
+      <text x="20" y="92"  class="label fg-muted body">vision-extracted operator vocabulary</text>
+    </g>
+  </g>
+
+  <!-- Footer caption -->
+  <text x="40" y="832" class="label fg-muted caption">
+    A small user profile (up to 12 facts, written by the Haiku memory pass) persists in <tspan class="kbd fg-muted">localStorage</tspan> and is injected into the system prompt on every turn.
+  </text>
+</svg>

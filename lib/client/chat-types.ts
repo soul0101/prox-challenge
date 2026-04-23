@@ -50,6 +50,20 @@ export type AskBlock = {
   allow_free_text: boolean;
 };
 
+/**
+ * Image the user attached to their message. `src` is either a base64 data URL
+ * (live upload) or a public file path (demo messages) — in both cases it can
+ * be rendered directly in an `<img>` tag. The server strips data-URL prefixes
+ * before forwarding to Claude as a base64 image block; public paths are sent
+ * as URL image sources.
+ */
+export type ImageAttachment = {
+  id: string;
+  src: string;
+  mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+  name?: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -59,6 +73,8 @@ export type ChatMessage = {
   /** group_ids of artifacts that first appeared in this turn — actual data
    *  lives in ChatPanel's artifactsByGroup map (so re-emits as v2 update in place) */
   artifactGroups: string[];
+  /** Images the user attached to this turn (user messages only). */
+  attachments?: ImageAttachment[];
   ask?: AskBlock;
   streaming?: boolean;
 };

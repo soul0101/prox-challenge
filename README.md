@@ -1,74 +1,151 @@
-# Manual Copilot
+# Prox Hiring Challenge
 
-> **This project is fully generic.** No code, prompt, tool, or heuristic is specific to the manual it ships with. The welder owner's manual in `files/` is a demo corpus — swap it for any PDF and the exact same pipeline, agent, and UI light up around the new document with zero code changes. Ingest, retrieval, tools, system prompt, and UI are all document-agnostic by design.
+**A multimodal reasoning agent for any technical product manual, at home on a phone or a laptop.** Drop a PDF into `files/`, run `npm run ingest`, and the same pipeline, the same tools, and the same UI light up around the new document — citing real pages, cropping the relevant regions of diagrams, and building interactive SVGs, flowcharts, and React calculators on demand. Built on the Claude Agent SDK.
 
-A multimodal reasoning agent for technical product manuals, built on the **Claude Agent SDK**. Drop any PDF in, run ingest, and you get a chat interface that answers questions with real page citations, cropped diagrams, and interactive artifacts (SVGs, flowcharts, parametric calculators) rendered live in the browser.
+> [!NOTE]
+> **Nothing in this codebase is specific to the welder manual it ships with.** The demo corpus is a Vulcan OmniPro 220 owner's manual because that's what the challenge supplied. Swap it for a Tesla service manual, a Bambu P1S firmware guide, or an FAA airworthiness directive and the system works identically. No code changes, no config, no per-document prompts. Ingest, retrieval, the agent's tool set, the system prompt, and the UI are all document-agnostic by design.
 
-## Run it
+The UI is built mobile-first, which matters because this is the device most users actually hold when they're standing in front of a machine they can't figure out. On phones, the chat runs full-width, artifacts render inline and reflow to fit, and the manual slides up as a bottom sheet the user can drag to dismiss — the same grounding, the same citations, the same interactive artifacts, re-flowed for one-handed use. On a laptop the sheet becomes a resizable right pane. Same code path; the shell adapts.
+
+
+<p align="center">
+  <img src="docs/screenshots/hero.png" alt="Laptop view" height="360">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/mobile-artifact.png" alt="Phone view" height="360">
+</p>
+
+
+*Same app at two viewports — laptop on the left, phone on the right. Artifacts reflow inline, sources dock as a right pane on desktop and a bottom sheet on mobile. Four demo conversations ship pre-seeded so a reviewer can explore without an API key.*
+
+## Running it
 
 ```bash
+git clone <this-fork>
+cd prox-challenge
 npm install
 npm run dev
 ```
 
-Open **[http://localhost:3000](http://localhost:3000)**. The demo corpus is pre-ingested and committed, so the first question works in under a minute.
+Open **[http://localhost:3000](http://localhost:3000)**. All three demo PDFs are pre-ingested and committed to the repo, so the first question works immediately — no ingest wait, no vector DB to provision, no model downloads. Four demo conversations (one per artifact kind) are also seeded into `localStorage` on first load, so a reviewer without an API key can still scroll through real answers, click citations, and poke the interactive artifacts before any agent call runs.
 
-**Auth.** The Claude Agent SDK inherits auth from your local `claude` CLI — if you're signed in via Claude Pro/Team, no key is needed. Otherwise set `ANTHROPIC_API_KEY` in `.env`, or paste a key into the Settings dialog on first load.
+The Claude Agent SDK inherits auth from your local `claude` CLI, so if you're signed in via Claude Pro or Team there's no key to set. Otherwise put `ANTHROPIC_API_KEY` in `.env`, or paste a key into the in-app Settings dialog on first load — it stays in `localStorage` and is only sent in request headers, never persisted server-side.
 
-## Design philosophy
+## One question, end to end
 
-Three arguments drive every other decision in the system. Changing any one of them would force changes to the other two — they compound.
+The cleanest way to explain what this system does is to show a single question end-to-end. Here's a hard one:
 
-### 1. Vision-first, end to end — not text-first RAG
+> *"I want to weld 3/16″ mild steel T-joints on 240V. Give me a settings configurator: I slide voltage and wire speed and you tell me whether I'm in the safe envelope per the manual's chart, with the exact manual page cited at the boundary conditions. Then show me what a good bead at those settings looks like vs. too cold and too hot."*
 
-The hardest content in a technical manual isn't the text. It's the exploded-view diagrams, the wiring schematics, the labeled part photos, the decision matrices. Text-embedding RAG indexes PDFs as if they were articles; it skims past exactly the content that makes manuals useful.
+One question, three jobs running in parallel. The agent has to read cell values from a chart in the manual, generate a parametric React artifact with sliders that respects the envelope those cells define, and surface the manual's own weld-quality photos — good bead, cold bead, hot bead — as visual evidence.
 
-So the pipeline is vision-first from ingest through answer:
+Here's what happens after the user hits enter.
 
-- **Ingest** runs a vision pass per page with Claude Opus. The output isn't OCR — it's a structured record (summary, figures with captions, tables with rows, keywords, *is this page mostly visual?*) that captures what the **image** contains, not just what text happens to be copy-pasteable.
-- **At answer time, the `open_page` tool returns the page image back into the agent's context.** Claude literally re-reads the diagram before writing the answer. Text-only retrieval would have made the expensive vision ingest pointless at the moment it matters most.
+**The orchestrator doesn't pass the user's phrasing straight to BM25.** It expands the question into 2–4 paraphrases — the user's wording, the manual's jargon form, abbreviations both spelled-out and contracted, compound questions split per topic — and dispatches all of them in one `search` call. *"3/16 mild steel T-joint 240V"* is joined by *"MIG operating envelope wire speed voltage"*, *"selection chart 0.1875 inch mild steel fillet"*, and *"duty cycle 240V"*. A garage-tone question gets to match a formal-tone manual because both vocabularies are searched at once. Results are merged per page with max-score fusion plus a small bonus for pages that rank under multiple paraphrases, so a page consistent across variants edges out one that spiked for a single phrasing.
 
-Ingest-time vision analysis runs once per document and the structured output is cached to disk. Retrieval, ranking, and the document outline all operate on that cached metadata — the PDF is never reprocessed after ingest. At answer time, `open_page` sends the page image back into the agent's context, because that's the whole point: the model re-reads the diagram before writing the answer.
+**The page gets loaded as an image, not as text.** Retrieval returns page 27. The `open_page` tool encodes that page's PNG and sends it back into Claude's context — the model literally re-reads the chart as an image before writing a word of the answer. This is the part a text-only RAG pipeline fundamentally can't do: the vocabulary you needed to retrieve the right page is different from the information you needed to answer the question. A second call, `crop_region`, runs an Opus vision pass to locate the 240V / 3/16″ cell on page 27 and returns just that crop. Source cards under the prose show the crop thumbnail with a `⌖ region` badge; a click opens the full page in the right pane with the bbox highlighted in context.
 
-### 2. Grounded in pixels or auditable code — never just prose on trust
+**The artifact is written and rendered in the same turn.** The agent emits React TSX with two sliders, an envelope-check function seeded from the cells it just read, and boundary warnings that cite the manual page at the edges of the safe region. The browser transforms the TSX in-place with sucrase and loads it into a sandboxed iframe. No build step, no bundler, no server round-trip for the artifact — the code streams down alongside the prose, and the iframe runs it with `sandbox="allow-scripts"` and a null origin, so the worst-case failure is a broken render, never a broken app. If the render throws, the iframe posts the error back and the agent re-emits a v2 into the same card; the UI keeps v1 visible below so the user can see what changed.
 
-The agent answers in prose, and backs that prose with two grounded output channels. Each one solves a different job, and each one is checkable by a user who doesn't trust the model:
+**The bead references are drawn, not narrated.** At the bottom of the artifact, four small SVGs — *too cold*, *good*, *running hot*, *too hot* — preview the bead profile at each regime, and the one matching the current slider position highlights live. When a question specifically calls for the manual's own photographs instead (*"show me porosity versus undercut"* in a different demo thread, say), a parallel `show_source` call surfaces them as inline source cards, each clickable to pop open the full page. Two visual paths, same grounding story: what the user sees is either generated from code they can read or lifted verbatim from the manual.
 
-- **Pinpoint visual citations.** When a claim comes from the manual, the agent surfaces the exact page — and when the answer hinges on a specific region (a dial, a socket, one row of a matrix), a vision call locates and crops to that region. The user isn't reading a summary of the diagram; they're looking at the diagram, pinned to the sub-pixel the model used.
-- **Interactive code artifacts.** When the answer is structural — a branching troubleshooting tree, a duty-cycle calculator, a reproduced wiring diagram — the agent writes SVG / Mermaid / HTML / React TSX, and the browser renders it in a sandboxed iframe. The generated code is as auditable as the artifact it renders; the user can open devtools and read it.
+**Prose ties it together, with inline citations that parse.** The agent writes in the same conversational register the system prompt asks for — someone explaining this to you in your garage, not a reprinted manual section. Page references like *"p.27"* and *"see the selection chart"* are detected by a parser in the client (not emitted as structured blocks) and turned into clickable chips. Click one and the source viewer jumps to that page. One rule in the system prompt, one parser in the client, no fragile schema in between.
 
-Either the answer is pinned to the real document, or it's expressed in code the user can inspect.
+### The four artifact kinds, each shown in a demo
 
-### 3. Orchestrator + tools, with model specialization per role — not one-shot prompt stuffing
+The artifact system is kind-driven — the agent picks from a small, curated set (`react`, `svg`, `mermaid`, `flowchart`, `procedure`, `image-labeling`, `html`, `markdown`) based on what the answer actually needs. Each kind has its own rendering template; the agent just writes the payload. Four of them are showcased in the pre-seeded demos:
 
-The runtime is a Claude Agent SDK `query()` loop with seven curated tools (search, open page, crop region, show source, emit artifact, ask user, list documents). A lean Sonnet orchestrator plans, calls tools, and composes the final answer.
 
-This is the opposite of the "paste the whole manual into context and ask" approach. Three reasons it wins:
+**Interactive React** — parametric tools. The envelope calculator reads cell values from the manual's operating chart, builds sliders around them, live-checks the operating point against the safe region, and color-shifts a status banner.
 
-- **Groundedness.** The manual isn't in the orchestrator's context. The only way to answer a spec question is to retrieve it — which is the only channel we can audit.
-- **Determinism.** Same question, same ingested corpus, same answer shape. Tools are pure functions over indexed data. The agent isn't improvising over a blurry mental map of the PDF; it's operating over a structured knowledge base.
-- **Model specialization per role.** One model doesn't fit every task:
+![Envelope calculator artifact](docs/screenshots/artifact-envelope.png)
+
+
+**Flowchart** — stateful decision trees. The thermal-protection troubleshooter branches on LCD behaviour and fan state, with a page citation on every leaf; clicking a branch advances through the tree.
+
+![Thermal-protection flowchart](docs/screenshots/artifact-flowchart.png)
+
+
+
+**Procedure** — step-by-step walkthroughs. The MIG setup guide steps through eight stages with a page image inline at each step, progress indicator, and warnings flagged on the risky ones.
+
+![MIG setup procedure artifact](docs/screenshots/artifact-procedure.png)
+
+
+
+**Image labelling** — numbered pins overlaid on a real manual page. The front-panel demo uses p.8 of the owner's manual; hovering a pin or a description highlights the counterpart.
+
+![Front-panel image-labelling artifact](docs/screenshots/artifact-image-labeling.png)
+
+
+### Questions don't have to be text — attach a photo of the thing
+
+The paperclip in the composer opens a real file picker; the image is encoded on the client, attached to the user turn, and sent to Claude as a content-block alongside the prompt. The same orchestrator + tools then run — the agent reads your photo with vision, searches the manual for the matching defect page, and diagnoses against the manual's own reference photos. A fifth pre-seeded demo thread (*Diagnose a bad weld from a photo*) shows the flow: a user drops in a picture of a porous weld and asks *"why is my weld coming out like this?"*; the assistant identifies classic gas porosity against p.37's defect reference and steps through the five most likely causes in order of likelihood, each cited to the manual page that covers the fix. This is the same vision pipeline the ingest side uses, just pointed at the user's photo instead of a manual page — a photo-in-hand troubleshooting loop the text-only version of this app couldn't close.
+
+![Multimodal turn — user attaches a porous weld photo and asks why it's coming out like this; the agent diagnoses against the manual with citations to p.37 and p.36](docs/screenshots/multimodal-weld-diagnosis.png)
+
+
+That's the full turn. What follows is how it works.
+
+## Three decisions that compound
+
+Every other choice in this system follows from three up-front commitments. Changing any one of them would force changes to the other two.
+
+### 1. Vision-first, end to end
+
+The hardest content in a technical manual isn't the text. It's the exploded-view diagrams, the wiring schematics, the labelled part photos, the decision matrices. Text-embedding RAG indexes PDFs as if they were articles; it skims past exactly the content that makes manuals useful.
+
+So the pipeline is vision-first from ingest through answer. At ingest, every page goes through a Claude Opus vision pass. The output isn't OCR — it's a structured record: a 2–4 sentence page summary, figures with captions and per-figure keywords, tables with columns and cells, a `kinds` array (`schematic`, `photo`, `chart`, `visual`), a best-guess section hint, an `is_mostly_visual` flag, and six to fifteen operator-facing keywords per page. That record is cached to disk under `knowledge/` and the PDF is never re-read after ingest.
+
+At answer time, `open_page` reverses the pipeline: the cached page PNG goes back into Claude's context so the model re-reads the diagram before writing the answer. The structured metadata drives retrieval; the image drives the actual reasoning. Running expensive vision at ingest and then only giving the model text at answer time would waste most of the ingest work at the moment it mattered most.
+
+### 2. Grounded in pixels or in code the user can inspect
+
+The agent answers in prose, but the prose isn't the whole answer. Two grounded output channels back it up, and each is checkable by a user who doesn't trust the model.
+
+When a claim depends on the manual, the agent cites the page — and when the answer hinges on a specific region of a page (a dial, a socket, one row of a matrix), a vision call locates and crops to that region. The user is looking at the diagram, not reading a summary of it. When the answer is structural — a branching troubleshooting tree, a parametric calculator, a step-by-step walkthrough, a labelled diagram — the agent picks an artifact kind from a small curated set (React TSX, SVG, Mermaid, HTML, plus JSON-driven templates for flowcharts, procedures, and image-labelling) and the browser renders it in a sandboxed iframe. The generated code is as auditable as the artifact it produces; open devtools and read it.
+
+Either the answer is pinned to the real document, or it's expressed in code the user can inspect. Unsourced prose on trust is the failure mode the whole design is built to avoid.
+
+### 3. An orchestrator with tools, with the right model per role
+
+The runtime is a Claude Agent SDK `query()` loop with seven tools: `list_documents`, `search`, `open_page`, `crop_region`, `show_source`, `emit_artifact`, and `ask_user`. A lean Sonnet orchestrator plans, calls tools, and composes the final answer.
+
+This is the opposite of the "paste the whole manual into context and ask" pattern, and it wins for three reasons. **Groundedness:** the manual isn't in the orchestrator's context, so the only way to answer a spec question is to retrieve it — which is the only channel that can be audited. **Determinism:** same question, same corpus, same answer shape. Tools are pure functions over indexed data; the agent operates on a structured knowledge base rather than a blurry mental map of the PDF. **Model specialization:** one model doesn't fit every task.
 
 
 | Role                            | Default | Why                                                                    |
 | ------------------------------- | ------- | ---------------------------------------------------------------------- |
 | Ingest — per-page vision        | Opus    | One-shot, quality-critical. Wrong metadata poisons every future query. |
-| Ingest — document consolidation | Opus    | Synthesize outline + suggested prompts; precision matters.             |
-| Chat orchestrator               | Sonnet  | Latency-sensitive. Users are waiting on every turn.                    |
+| Ingest — document consolidation | Opus    | Outline + suggested prompts; precision matters.                        |
+| Chat orchestrator               | Sonnet  | Latency-sensitive. The user is waiting on every turn.                  |
 | Vision crop / region locate     | Opus    | Bounding-box precision on dense diagrams.                              |
-| Artifact code generation        | Opus    | Quality > latency for rendered output.                                 |
+| Artifact code generation        | Opus    | Quality beats latency for rendered output.                             |
+| Memory extraction               | Haiku   | High-frequency, per-turn, small deltas. Latency and cost dominate.     |
 
 
-Each role is individually overridable (`MODEL_ROLE_`* env vars, or per-request from the Settings dialog). The user pays for precision only where the task demands it.
+Each role is individually overridable via `MODEL_ROLE_`* env vars, or per-request from the in-app Settings dialog. The user pays for precision only where the task demands it.
 
-## Why these specific technical choices
+## The shape of the system
 
-### Retrieval: BM25 + LLM-expanded vocabulary + stemming + agent-side paraphrase, not vector RAG
+Zooming out, three layers talk to each other over a single streaming HTTP response. The client shows the conversation and whatever the agent surfaces; the agent plans and calls tools; the knowledge layer is a set of static files that were written once, at ingest time, and never touched again at runtime.
 
-Retrieval is BM25 via minisearch. No vector DB, no embeddings, no reranker. This is a deliberate subtraction — but the reason it works isn't "BM25 is fine at this scale." It's that four cheap ideas, composed, cover the ground vector RAG is usually brought in to cover.
+![System architecture — client, agent, knowledge layer, and the streaming transport between them](docs/architecture.svg)
 
-**1. The index doesn't just hold OCR — it holds a vision-extracted vocabulary layer.**
-Every page goes through a one-time Opus vision pass that emits (alongside a summary) 6–15 operator-facing **keywords** — the jargon, part names, error codes, and process names an operator would actually search for. Figure captions and table titles get the same treatment. Those land in separate index fields with their own boosts:
+The chat transport streams everything down a single HTTP response — text deltas, tool-call lifecycle events, source citations, artifact emissions, disambiguation asks — so the UI can update progressively as the agent works, rather than waiting for a final reply.
+
+## The ingest pipeline
+
+Ingest runs once per PDF and is fully generic. `npm run ingest` is incremental by content hash; `npm run ingest:force` re-runs everything from scratch.
+
+![Ingest pipeline — PDF to vision-extracted JSON bundle under knowledge/](docs/ingest-pipeline.svg)
+
+A 50-page technical manual takes five to ten minutes to ingest end-to-end on Opus, dominated by the vision pass. Re-runs pick up only new or hash-changed pages. The finished index for the shipped demo corpus is a 236 KB JSON bundle — it ships in the repo, which is why the first question works in under a minute on a fresh clone.
+
+## Retrieval: BM25 plus three cheap ideas that replace a vector DB
+
+Retrieval is BM25 via `minisearch`. No vector DB, no embeddings, no reranker. This is a deliberate subtraction, but the reason it works isn't "BM25 is fine at this scale." It's that three composed ideas cover the ground a vector DB is usually brought in to cover.
+
+**The index doesn't just hold OCR — it holds a vision-extracted vocabulary layer.** Every page goes through a one-time Opus vision pass that emits, alongside a summary, six to fifteen operator-facing keywords: the jargon, part names, error codes, and process names an operator would actually search for. Figure captions and table titles get the same treatment. Those land in separate index fields with their own boosts:
 
 
 | Field          | Boost | What's in it                                                 |
@@ -77,128 +154,57 @@ Every page goes through a one-time Opus vision pass that emits (alongside a summ
 | `keywords`     | 2.2×  | Vision-extracted operator jargon per page                    |
 | `summary`      | 2.0×  | 2–4 sentence page summary                                    |
 | `figure_text`  | 1.8×  | Figure captions + per-figure keywords                        |
-| `figure_kinds` | 1.5×  | `schematic`, `photo`, `chart`, `visual`/`diagram`            |
+| `figure_kinds` | 1.5×  | `schematic`, `photo`, `chart`, `visual`                      |
 | `table_text`   | 1.4×  | Table columns + cells                                        |
 | `section_hint` | 1.1×  | Best-guess chapter/section name                              |
-| `text`         | 1.0×  | Raw OCR text (base)                                          |
+| `text`         | 1.0×  | Raw OCR text                                                 |
 
 
-This is the part most BM25 comparisons miss. "Plain BM25 on raw OCR" underperforms for a reason — it's only indexing what the PDF happens to have as selectable text, and on a diagram-heavy manual that's half the document. Here the LLM has already read each page as an image and tagged it with the search vocabulary an operator would use, so by the time BM25 runs, the index has already absorbed a big chunk of what an embedding model would otherwise have to infer at query time.
+This is the part most BM25 comparisons miss. Plain BM25 on raw OCR underperforms for a reason: it's only indexing what the PDF happens to have as selectable text, and on a diagram-heavy manual that's half the document. Here the LLM has already read each page as an image and tagged it with the search vocabulary an operator would use, so by the time BM25 runs, the index has already absorbed a big chunk of what an embedding model would otherwise have to infer at query time.
 
-**2. Stemming folds morphology at both ends.**
-A shared `processTerm` (lowercase + Porter stemmer, skipping short all-caps codes like `DCEP`/`FCAW`) runs at index-time AND query-time inside minisearch, so `welding`, `welded`, `welds`, and `weld` collapse to the same root. Paired with `prefix: true` (catches longer derivations the stemmer left alone) and `fuzzy: 0.15` (edit-distance 0.15 to absorb typos). One function, one tokenizer pipeline, used everywhere. See `lib/kb/search.ts`.
+**Stemming folds morphology at both ends.** A shared `processTerm` (lowercase plus Porter stemmer, skipping short all-caps codes like `DCEP`, `FCAW`, `MIG`) runs at index-time and query-time inside `minisearch`, so `welding`, `welded`, `welds`, and `weld` collapse to the same root. Paired with `prefix: true` to catch longer derivations the stemmer leaves alone, and `fuzzy: 0.15` edit-distance to absorb typos. One function, one tokenizer pipeline, used everywhere.
 
-**3. The agent expands every question into 2–4 paraphrases before it hits BM25.**
-The `search` tool takes `queries: string[]`, not one string. The orchestrator is instructed to generate paraphrases: the user's verbatim wording, the manual's jargon form (`stick welding` → also `SMAW`, `shielded metal arc welding`), abbreviations both expanded and contracted (`AC balance` → also `alternating current balance`), and compound questions split per-topic. Each paraphrase is scored independently; results are merged by `doc#page` with **max-score fusion** plus a small multi-hit bonus (1.15× for 2 paraphrases, 1.25× for 3+) so a page that ranks under every paraphrase edges out one that only showed up for a single variant. This is where colloquial queries stop whiffing against formal-tone manuals. See `hitsFromQueries` in `lib/kb/search.ts`.
+**The agent expands every question into paraphrases before BM25 runs.** The `search` tool takes `queries: string[]`, not one string. The orchestrator is instructed to generate two to four variants covering the user's verbatim phrasing, the manual's formal form (`stick welding` → also `SMAW`, `shielded metal arc welding`), abbreviations expanded and contracted (`AC balance` → also `alternating current balance`), and compound questions split per topic. Each variant is scored independently; pages are merged by `doc#page` with max-score fusion plus a small multi-hit bonus — 1.15× for two paraphrases, 1.25× for three or more — so a page that ranks under every paraphrase edges out one that only showed up for a single variant. This is where colloquial queries stop whiffing against formal-tone manuals.
 
-**4. Field boosts are a tunable knob, not a fixed formula.**
-If a new corpus routes more information through tables, bump `table_titles`. If a manual uses a lot of labeled photos, bump `figure_text`. No re-encoding. Just change a number and re-ingest (the ingest script rebuilds the index from cached per-page JSON — no re-running vision).
+Dense retrieval would solve exactly one problem these three don't: the vocabulary gap between a user's phrasing and the document's. That gap is closed up-front — at ingest with Opus-extracted keywords, and at query time with agent-side paraphrase — at the two points where the signal is cheap and interpretable. Adding a vector store on top would be paying for the same coverage twice, and would add version skew between the embedding model and the index as a new failure mode. BM25 matches are explainable token-by-token (`"capacitor"` ranked p.27 because it hit the `keywords` field at 2.2× and a figure caption at 1.8×); dense similarity in a 1536-dimensional space isn't something you can debug over coffee. At ten documents or ten thousand pages, or a corpus where `is_mostly_visual` pages dominate and the text-indexable vocabulary is genuinely thin, I'd add a dense retriever as a second stage and rerank the union — not as a replacement, as a belt-and-braces layer.
 
-**Why not vector embeddings + RAG:**
+Field boosts are a tunable knob, not a fixed formula. If a new corpus routes more information through tables, bump `table_titles` and re-ingest. The ingest script rebuilds the index from the cached per-page JSON without re-running vision, so the cost of tuning is seconds, not minutes.
 
-- **Scale.** At ~50 pages × 3 documents, the index is a 236 KB JSON bundle that ships in the repo. A vector store is more moving parts than signal at this size — provisioning, eventual consistency, version skew between the embedding model and the index, a new failure mode for something users already expect to just work.
-- **Groundedness.** BM25 matches are explainable token-by-token. `"capacitor"` ranked p.27 because it hit the keywords field (2.2×) and a figure caption (1.8×). With dense retrieval, "this page is near that query in a 1536-dim space" isn't something you can debug over coffee — you'd end up running a reranker to audit the retriever.
-- **Determinism.** Same query today, same ranking tomorrow. No float drift, no quiet behavior shift when a provider ships a new embedding model.
-- **User vocabulary.** Manuals use a tight domain vocabulary — the user usually types what's stamped on the machine. Semantic similarity buys its keep on open-domain prose; it buys much less when the query overlap is already literal.
-- **The vocabulary gap is the one real case for dense retrieval, and we cover it at ingest.** Embeddings mostly shine when the user's phrasing diverges from the document's. We absorb that gap up front with per-page Opus-extracted keywords and at query-time with agent-side paraphrase — the two places where the signal is cheap and interpretable. Bolting on a vector index would be paying for the same coverage twice.
-- **Latency and cost.** BM25 search is sub-millisecond in-process, no network hop. Ingest is one-shot per PDF, already amortized. Every vector RAG system I've seen adds either latency (remote DB) or build complexity (embedded store, re-encode on model rev) with no accuracy win on this corpus shape.
+## Artifacts: no build step, sandboxed by default
 
-**When we'd reconsider:** 10+ documents, 10k+ pages, or a corpus where `is_mostly_visual` pages dominate and the text-indexable vocabulary is genuinely thin (poetry-heavy marketing collateral, hand-drawn repair sketches). At that point you'd add a dense retriever as a second stage and rerank the union — not as a replacement for BM25, as a belt-and-braces layer on top.
+Every generated artifact — React TSX, SVG, Mermaid, HTML, or a JSON payload rendered by one of the built-in templates (flowchart, procedure, image-labelling) — is loaded into one static `artifact-runner.html` page running inside an iframe with `sandbox="allow-scripts"`. Null origin, no cookies, no access to the user's localStorage or the host app's APIs. React, Tailwind, recharts, and mermaid come from `esm.sh` via an import map; TSX is transformed in-browser by **sucrase**, which is five to ten times faster than `babel-standalone` and purpose-built for runtime JSX and TypeScript stripping.
 
-### SSE over WebSocket
+Three properties fall out of this. There's no build step for generated code — the agent emits it and the iframe renders it. The sandbox boundary caps the worst case at a broken render, not a broken app. And because the iframe posts render errors back to the host, the agent can re-emit a corrected version into the same card; the UI stacks the versions so v1 and v2 sit side by side for comparison.
 
-The chat transport is Server-Sent Events. The server streams multiple event types — text deltas, tool lifecycle, source citations, artifact emissions, disambiguation asks — down a single HTTP response. The next user message is a new POST.
+Constraining artifacts to a small, known set of kinds is itself a design choice. It keeps the artifact-author prompt crisp — no "three.js or canvas?" ambiguity — and forces polish within a known substrate.
 
-WebSockets offer a bidirectional channel we don't need. SSE works through every CDN and reverse proxy without upgrade negotiation, the browser `EventSource` API is trivial, and reconnection semantics are well-defined. For a one-way stream of LLM output and tool events, SSE is the right amount of protocol.
+## What the agent remembers about you
 
-### Sandboxed iframe + sucrase, not a Vite bundle
+Threads and a small per-user profile persist in `localStorage` — no backend, no account, no network hop. Reload the tab or come back tomorrow and state comes back with you. Each conversation is a saved thread with its own messages and artifacts; threads can be renamed, searched, or deleted, and are capped at the forty most-recently-updated. A server-side 16-turn sliding window keeps prompt size bounded regardless of thread length.
 
-Generated artifacts are React TSX, HTML, SVG, or Mermaid. They run in one static `artifact-runner.html` page, loaded into an iframe with `sandbox="allow-scripts"` — null origin, no cookies, no same-origin privileges. React / Tailwind / recharts / mermaid are loaded from esm.sh via an import map; TSX is transformed in the browser with **sucrase**, which is 5–10× faster than babel-standalone and purpose-built for runtime JSX/TS stripping.
-
-Merits:
-
-- **No build step for generated code.** The agent emits code, the iframe renders it. There's no "package and deploy the artifact" pipeline.
-- **Sandboxed origin.** An artifact can't exfil cookies, hit the manual's APIs, or read the user's localStorage. The worst-case failure is a broken render, never a broken app.
-- **Auto-fix on error.** If an artifact throws, the iframe posts the error back, and the agent re-emits a corrected version into the same slot. The UI stacks versions so the user can compare v1 and v2.
-
-Constraining artifacts to a small, known set of kinds is itself a design choice: it keeps the artifact-author prompt crisp (no "three.js or canvas?" ambiguity) and forces polish within a known substrate.
-
-### Citations are parsed, not templated
-
-The agent is told to cite sources in its prose. The UI scans the rendered answer for citation shapes and turns each into a clickable chip that opens the source viewer at that page. The agent doesn't have to emit structured citation blocks, and the parser is resilient to whatever natural form the model picks. One rule in the system prompt, one parser in the client — no fragile schema between them.
-
-## How the pieces fit
-
-```
-Ingest (one-time per PDF, fully generic)
-  PDF ─▶ pdfjs + canvas ─▶ page PNGs
-                │
-                ▼
-        per-page vision pass (Opus)
-                │
-                ▼
-        consolidation pass (outline + suggested prompts)
-                │
-                ▼
-        BM25 index (stemmed, field-boosted) + page metadata + suggested prompts
-                │
-                ▼
-        committed to the repo; no DB needed
-
-Runtime (Next.js, single process)
-  Chat UI ◀─SSE─ /api/chat
-                   │
-                   ▼
-           Agent SDK query()
-           Sonnet orchestrator
-            ┌─────────────────┐
-            │ in-process MCP: │
-            │  search         │──▶ 2–4 paraphrases ─▶ BM25 ─▶ merged
-            │  open_page(s)   │──▶ image back into agent context
-            │  crop_region    │──▶ Opus vision
-            │  show_source    │──▶ UI source panel
-            │  emit_artifact  │──▶ Opus codegen ─▶ sandboxed iframe
-            │  ask_user       │──▶ UI quick-reply
-            │  list_documents │
-            └─────────────────┘
-```
-
-The right-hand pane of the UI swaps between a **source viewer** (the cited page, with optional crop overlay) and an **artifact panel** (the sandboxed iframe). Citations in the agent's prose are auto-linked; clicking one opens the source panel at that page.
-
-## Conversation memory
-
-Threads and a small per-user profile persist in `localStorage` — no backend, no account, no network hop. Reload the tab or come back tomorrow and state comes back with you.
-
-- **Threads.** Each conversation is a saved thread with its own messages and artifacts. Create, rename, delete, search. Capped at the 40 most-recent-updated; a server-side 16-turn sliding window keeps context bounded regardless of thread length.
-- **Memory.** A tiny profile of durable facts about the user — their model, skill level, preferences, constraints. After each turn a Haiku pass reads the exchange against the existing profile and returns an updated list under a hard cap of 12, merging overlapping facts in place rather than appending variants. The profile is injected into the system prompt separately from message history, so long-range recall doesn't consume conversational context.
-
-Every fact is visible and editable in the UI. The assistant never knows anything about you that you can't inspect, overwrite, or clear.
-
-![Memory panel](docs/memory.png)
+After each turn, a Haiku pass reads the exchange against the existing profile and returns an updated list of durable facts — the user's machine model, their skill level, their voltage, their material. Overlapping facts are merged in place rather than appended as variants, and the total is capped at twelve. The profile is injected into the system prompt separately from message history, so long-range recall doesn't consume conversational context. Every fact is visible and editable from the Memory dialog; the assistant never knows anything about the user that the user can't inspect, overwrite, or clear.
 
 ## Using it with your own manuals
 
 ```bash
 cp my-device-manual.pdf files/
-npm run ingest         # incremental — only new/changed files
+npm run ingest         # incremental — only new / changed files
 npm run dev
 ```
 
-The new manual joins whatever is already in `knowledge/`, shows up in the library drawer, contributes suggested prompts, and becomes part of the agent's retrieval scope. No code changes, no config.
+The new manual joins whatever is already in `knowledge/`, shows up in the library drawer, contributes auto-generated suggested prompts on the welcome screen, and becomes part of the agent's retrieval scope. No code changes, no config.
 
 ```bash
 npm run ingest:force   # re-ingest everything from scratch
 ```
 
-## Running against a different model
+Models are overridable at every level. Fleet-wide defaults come from `CLAUDE_MODEL` and `INGEST_MODEL`; per-role overrides (`MODEL_ROLE_QA_ORCHESTRATOR`, `MODEL_ROLE_QA_ARTIFACT`, `MODEL_ROLE_INGEST_VISION`, and others) take priority over those. The in-app Settings dialog lets you pick per-request models and paste a per-session API key without touching `.env`.
 
-```bash
-CLAUDE_MODEL=opus      npm run dev       # orchestrator, fleet-wide
-INGEST_MODEL=sonnet    npm run ingest    # ingest, fleet-wide
+## A note on what's not here
 
-# Per-role overrides take priority:
-MODEL_ROLE_QA_ORCHESTRATOR=opus
-MODEL_ROLE_QA_ARTIFACT=sonnet
-```
+A persistent backend database, voice I/O, in-app PDF upload, and web search are all absent — each one deliberately. `localStorage` is the right amount of persistence for a single-user demo and lets a reviewer wipe state with one click; a real deployment would swap in Postgres behind auth, but that's a boring layer rather than an interesting one. Voice isn't the bottleneck on this corpus — accuracy is — and adding it would trade polish elsewhere for a modality the task doesn't benefit from. Web search is the only one with a principled reason: the thesis is *"every claim is grounded in the document you uploaded,"* and a web-search tool would undermine that at exactly the moment it matters most.
 
-The Settings dialog in the UI also lets you pick per-request models and paste a per-session API key without touching `.env`.
+If I had another week, the next things I'd build, in order: an eval harness with a gold set of forty questions per corpus scored on retrieval recall, citation correctness, and artifact render success — you can't tune field boosts or swap models responsibly without it. A self-correcting retrieval loop that, on a low top-score, re-expands paraphrases seeded from the vision-extracted keywords of the top candidates before falling back to `ask_user`. A lightweight routing step ahead of BM25 so single-doc questions don't get noise from the other corpora — minor at three documents, load-bearing at thirty. And an observability drawer that persists per-turn traces server-side so latency, token counts, and v1-to-v2 artifact corrections are all inspectable after the fact.
+
+---
+

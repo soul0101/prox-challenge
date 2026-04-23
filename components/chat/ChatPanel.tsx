@@ -20,6 +20,7 @@ import type { Manifest, ManifestEntry } from "@/lib/kb/types";
 import type {
   ArtifactAttachment,
   ChatMessage,
+  ImageAttachment,
   SourceAttachment,
   ToolChip,
 } from "@/lib/client/chat-types";
@@ -27,8 +28,8 @@ import { Button } from "@/components/ui/button";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { ToolChipRow } from "./ToolChipRow";
 import { CitationText } from "./CitationText";
-import { SourceCard } from "./SourceCard";
-import { ArtifactCard } from "./ArtifactCard";
+import { SourceStrip } from "./SourceStrip";
+import { InlineArtifact } from "./InlineArtifact";
 import { PendingArtifactCard } from "./PendingArtifactCard";
 import { AskBlock } from "./AskBlock";
 import { Composer } from "./Composer";
@@ -52,8 +53,10 @@ type Props = {
   artifactsByGroup: Map<string, ArtifactAttachment>;
   onOpenSource: (doc: string, page: number, attach?: SourceAttachment | null) => void;
   onArtifactEvent: (e: ArtifactEvent, callback?: (groupId: string) => void) => void;
-  onOpenArtifact: (groupId: string, version?: number) => void;
-  activeGroupId: string | null;
+  /** User picked a different version on the inline card; update current_version in place. */
+  onPickArtifactVersion: (groupId: string, version: number) => void;
+  /** Iframe reported a render error; parent kicks off the auto-fix turn. */
+  onArtifactError?: (groupId: string, version: number, errorMsg: string, code: string) => void;
   onOpenLibrary: () => void;
   onOpenSettings: () => void;
   onOpenThreads: () => void;
@@ -89,8 +92,8 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
     artifactsByGroup,
     onOpenSource,
     onArtifactEvent,
-    onOpenArtifact,
-    activeGroupId,
+    onPickArtifactVersion,
+    onArtifactError,
     onOpenLibrary,
     onOpenSettings,
     onOpenThreads,
@@ -120,6 +123,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
 
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
+  const [attachment, setAttachment] = useState<ImageAttachment | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showScrollFab, setShowScrollFab] = useState(false);
@@ -134,6 +138,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
     abortRef.current = null;
     setMessages(initialMessages);
     setInput("");
+    setAttachment(null);
     setError(null);
     setBusy(false);
     autoStickRef.current = true;
@@ -196,8 +201,11 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
   const submit = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || busy) return;
+      // Allow image-only turns — an attachment with no text is still a question.
+      if (!trimmed && !attachment) return;
+      if (busy) return;
 
+      const pendingAttachment = attachment;
       const userMsg: ChatMessage = {
         id: newId(),
         role: "user",
@@ -205,6 +213,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
         toolChips: [],
         sources: [],
         artifactGroups: [],
+        attachments: pendingAttachment ? [pendingAttachment] : undefined,
       };
       const assistantMsg: ChatMessage = {
         id: newId(),
@@ -218,6 +227,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
       const nextHistory: ChatMessage[] = [...messages, userMsg, assistantMsg];
       setMessages(nextHistory);
       setInput("");
+      setAttachment(null);
       setBusy(true);
       setError(null);
       autoStickRef.current = true;
@@ -233,7 +243,11 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
           body: JSON.stringify({
             history: nextHistory
               .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
-              .map((m) => ({ role: m.role, content: m.content })),
+              .map((m) => ({
+                role: m.role,
+                content: m.content,
+                attachments: m.attachments,
+              })),
             memory: memoryRef.current,
             ...toPayload(settingsRef.current),
           }),
@@ -261,7 +275,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [busy, messages, updateLast],
+    [busy, messages, attachment, updateLast],
   );
 
   const handleEvent = useCallback(
@@ -396,7 +410,13 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
   const pageCount = manifest.documents.reduce((s, d) => s + d.page_count, 0);
 
   return (
-    <div className="relative flex h-full flex-col">
+    <div className="relative flex h-full min-h-0 flex-col">
+      {/* Scroll container — header lives INSIDE it so `sticky top-0`
+          actually pins to the top as the thread scrolls. */}
+      <div
+        ref={scrollRef}
+        className="relative min-h-0 flex-1 overflow-y-auto scrollbar-thin"
+      >
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-border-subtle bg-background/70 backdrop-blur-xl">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
@@ -477,11 +497,7 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
         </div>
       </header>
 
-      {/* Thread */}
-      <div
-        ref={scrollRef}
-        className="relative flex-1 overflow-y-auto scrollbar-thin"
-      >
+      {/* Thread messages */}
         <div className="mx-auto w-full max-w-3xl px-4 pb-40 pt-6">
           {messages.length === 0 && (
             <WelcomeHero
@@ -499,8 +515,8 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
                   documents={manifest.documents}
                   artifactsByGroup={artifactsByGroup}
                   onOpenSource={onOpenSource}
-                  onOpenArtifact={onOpenArtifact}
-                  activeGroupId={activeGroupId}
+                  onPickArtifactVersion={onPickArtifactVersion}
+                  onArtifactError={onArtifactError}
                   onPickAskOption={(text) => submit(text)}
                   busy={busy}
                   isLastAssistant={
@@ -538,6 +554,9 @@ export const ChatPanel = forwardRef<ChatPanelHandle, Props>(function ChatPanel(
             onVoiceTranscript={(t) => submit(t)}
             placeholders={placeholders}
             busy={busy}
+            attachment={attachment}
+            onAttach={setAttachment}
+            onClearAttachment={() => setAttachment(null)}
           />
         </div>
       </div>
@@ -578,8 +597,8 @@ function MessageBubble({
   documents,
   artifactsByGroup,
   onOpenSource,
-  onOpenArtifact,
-  activeGroupId,
+  onPickArtifactVersion,
+  onArtifactError,
   onPickAskOption,
   busy,
   isLastAssistant,
@@ -588,13 +607,15 @@ function MessageBubble({
   documents: ManifestEntry[];
   artifactsByGroup: Map<string, ArtifactAttachment>;
   onOpenSource: (doc: string, page: number, attach?: SourceAttachment | null) => void;
-  onOpenArtifact: (groupId: string, version?: number) => void;
-  activeGroupId: string | null;
+  onPickArtifactVersion: (groupId: string, version: number) => void;
+  onArtifactError?: (groupId: string, version: number, errorMsg: string, code: string) => void;
   onPickAskOption: (text: string) => void;
   busy: boolean;
   isLastAssistant: boolean;
 }) {
   if (message.role === "user") {
+    const hasAttachments = !!message.attachments?.length;
+    const hasText = message.content.trim().length > 0;
     return (
       <motion.div
         layout="position"
@@ -602,10 +623,33 @@ function MessageBubble({
         animate={{ opacity: 1, y: 0, transition: { duration: 0.24, ease: ease.smooth } }}
         className="flex justify-end"
       >
-        <div className="group relative max-w-[82%]">
-          <div className="whitespace-pre-wrap rounded-3xl rounded-br-lg bg-gradient-to-br from-primary to-primary/85 px-4 py-2.5 text-[14px] leading-relaxed text-primary-foreground shadow-brand ring-1 ring-white/10">
-            {message.content}
-          </div>
+        <div className="group relative flex max-w-[82%] flex-col items-end gap-1.5">
+          {hasAttachments && (
+            <div className="flex max-w-full flex-wrap justify-end gap-1.5">
+              {message.attachments!.map((att) => (
+                <a
+                  key={att.id}
+                  href={att.src}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block overflow-hidden rounded-2xl border border-primary/30 bg-surface-2 shadow-brand ring-1 ring-white/10 transition-transform hover:scale-[1.01]"
+                  title={att.name ? `Open ${att.name}` : "Open image"}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={att.src}
+                    alt={att.name || "Attached image"}
+                    className="block max-h-64 w-auto max-w-full object-contain"
+                  />
+                </a>
+              ))}
+            </div>
+          )}
+          {hasText && (
+            <div className="whitespace-pre-wrap rounded-3xl rounded-br-lg bg-gradient-to-br from-primary to-primary/85 px-4 py-2.5 text-[14px] leading-relaxed text-primary-foreground shadow-brand ring-1 ring-white/10">
+              {message.content}
+            </div>
+          )}
         </div>
       </motion.div>
     );
@@ -650,15 +694,10 @@ function MessageBubble({
           </div>
         )}
         {message.sources.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {message.sources.map((s, i) => (
-              <SourceCard
-                key={i}
-                source={s}
-                onOpen={(doc, page) => onOpenSource(doc, page, s)}
-              />
-            ))}
-          </div>
+          <SourceStrip
+            sources={message.sources}
+            onOpen={(s) => onOpenSource(s.doc, s.page, s)}
+          />
         )}
         {(() => {
           const pendingArtifactChips = message.toolChips.filter(
@@ -671,7 +710,7 @@ function MessageBubble({
             message.artifactGroups.length > 0 || pendingArtifactChips.length > 0;
           if (!hasContent) return null;
           return (
-            <div className="mt-2.5 space-y-1.5">
+            <div className="mt-2.5 space-y-2.5">
               {pendingArtifactChips.map((c) => (
                 <PendingArtifactCard key={`pending-${c.id}`} chip={c} />
               ))}
@@ -679,11 +718,11 @@ function MessageBubble({
                 const a = artifactsByGroup.get(gid);
                 if (!a) return null;
                 return (
-                  <ArtifactCard
+                  <InlineArtifact
                     key={gid}
                     artifact={a}
-                    active={activeGroupId === gid}
-                    onOpen={(version) => onOpenArtifact(gid, version)}
+                    onPickVersion={onPickArtifactVersion}
+                    onError={onArtifactError}
                   />
                 );
               })}

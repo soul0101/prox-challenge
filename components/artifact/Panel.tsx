@@ -177,7 +177,7 @@ export function ArtifactPanel({
   const tint = KIND_TINT[v.kind] || KIND_TINT.markdown;
 
   return (
-    <aside className={cn("flex flex-col glass border-l border-l-border-strong/50", wrapper)}>
+    <aside className={cn("flex flex-col glass", wrapper)}>
       {/* Top row: title + actions */}
       <div className="flex items-start justify-between gap-2 border-b border-border-subtle px-3 pb-2.5 pt-3 sm:gap-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">

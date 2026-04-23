@@ -4,9 +4,11 @@ import type {
   ArtifactAttachment,
   AskBlock,
   ChatMessage,
+  ImageAttachment,
   SourceAttachment,
   ToolChip,
 } from "./chat-types";
+import { DEMO_SEEDED_KEY, buildDemoThreads } from "./demo-threads";
 
 /**
  * Persisted message. Mirrors ChatMessage but drops transient UI state
@@ -20,6 +22,7 @@ export interface StoredMessage {
   toolChips: ToolChip[];
   sources: SourceAttachment[];
   artifactGroups: string[];
+  attachments?: ImageAttachment[];
   ask?: AskBlock;
   ts: number;
 }
@@ -62,6 +65,7 @@ export function fromChatMessage(m: ChatMessage): StoredMessage {
     toolChips: m.toolChips,
     sources: m.sources,
     artifactGroups: m.artifactGroups,
+    attachments: m.attachments,
     ask: m.ask,
     ts: Date.now(),
   };
@@ -75,6 +79,7 @@ export function toChatMessage(m: StoredMessage): ChatMessage {
     toolChips: m.toolChips,
     sources: m.sources,
     artifactGroups: m.artifactGroups,
+    attachments: m.attachments,
     ask: m.ask,
   };
 }
@@ -109,11 +114,9 @@ function createThread(): Thread {
   };
 }
 
-function loadState(): ThreadsState {
-  if (typeof window === "undefined") return emptyState();
+function parseStoredState(raw: string | null): ThreadsState {
+  if (!raw) return emptyState();
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyState();
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.threads)) return emptyState();
     const threads: Thread[] = parsed.threads
@@ -138,6 +141,32 @@ function loadState(): ThreadsState {
   } catch {
     return emptyState();
   }
+}
+
+function loadState(): ThreadsState {
+  if (typeof window === "undefined") return emptyState();
+  const stored = parseStoredState(window.localStorage.getItem(STORAGE_KEY));
+  // Seed the demo conversations on any browser that hasn't seen them yet
+  // (keyed by DEMO_SEEDED_KEY, which is bumped whenever the demo set changes).
+  // If the user already had their own threads, the demos prepend — nothing is
+  // lost. Older demo threads (prefixed "demo-") get swapped out for the new
+  // set so a version bump replaces them rather than duplicating.
+  try {
+    if (typeof window !== "undefined" && !window.localStorage.getItem(DEMO_SEEDED_KEY)) {
+      const demos = buildDemoThreads();
+      const userThreads = stored.threads.filter((t) => !t.id.startsWith("demo-"));
+      const merged: ThreadsState = {
+        threads: [...demos, ...userThreads],
+        activeId: demos[0]?.id ?? stored.activeId ?? null,
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      window.localStorage.setItem(DEMO_SEEDED_KEY, "1");
+      return merged;
+    }
+  } catch {
+    // fall through — we still have `stored` to hand back
+  }
+  return stored;
 }
 
 /**

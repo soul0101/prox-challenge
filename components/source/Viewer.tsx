@@ -227,7 +227,7 @@ export function SourceViewer({
   })();
 
   return (
-    <aside className="flex h-full flex-col glass border-l border-l-border-strong/50">
+    <aside className="flex h-full flex-col glass">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 pb-2.5 pt-3">
         <div className="flex min-w-0 items-center gap-3">

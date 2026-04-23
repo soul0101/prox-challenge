@@ -1,0 +1,248 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e19] [cursor=pointer]:
+    - img [ref=e20]
+  - alert [ref=e23]
+  - generic [ref=e24]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - banner [ref=e29]:
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - button "Conversations" [ref=e32] [cursor=pointer]:
+                - img [ref=e33]
+                - generic [ref=e35]: "4"
+              - img [ref=e37]
+              - generic [ref=e42]:
+                - generic [ref=e43]:
+                  - generic [ref=e44]: Manual Copilot
+                  - generic "ready" [ref=e45]: ready
+                - generic [ref=e48]: 3 docs · 51 pages · Owner Manual
+            - generic [ref=e49]:
+              - button "Memory" [ref=e50] [cursor=pointer]:
+                - img [ref=e51]
+                - generic [ref=e61]: Memory
+              - button "Library" [ref=e62] [cursor=pointer]:
+                - img [ref=e63]
+                - generic [ref=e65]: Library
+              - button "Open settings" [ref=e66] [cursor=pointer]:
+                - img [ref=e67]
+        - generic [ref=e71]:
+          - generic [ref=e746]: I'm brand new to this machine. Walk me through MIG setup end-to-end for 1/8-inch mild steel T-joints on 240V — every step, from unboxing the spool to the first practice bead, including what to check and the common mistakes I'd make. Show me what to look for on each manual page you're working from.
+          - generic [ref=e747]:
+            - img [ref=e751]
+            - generic [ref=e756]:
+              - generic [ref=e757]:
+                - generic "search" [ref=e758]:
+                  - img [ref=e759]
+                  - generic [ref=e761]: search
+                  - img [ref=e763]
+                - generic "open_page" [ref=e765]:
+                  - img [ref=e766]
+                  - generic [ref=e768]: open_page
+                  - img [ref=e770]
+                - generic "emit_artifact · MIG setup — 1/8″ mild steel on 240V" [ref=e772]:
+                  - img [ref=e773]
+                  - generic [ref=e775]: emit_artifact
+                  - generic [ref=e776]: · MIG setup — 1/8″ mild steel on 240V
+                  - img [ref=e778]
+              - generic [ref=e781]:
+                - paragraph [ref=e782]: There are eight discrete steps to getting a first practice bead down — the walkthrough on the right steps through each one with a figure from the manual and the common mistakes flagged in yellow.
+                - paragraph [ref=e783]: "The shape of it:"
+                - list [ref=e784]:
+                  - listitem [ref=e785]:
+                    - strong [ref=e786]: Confirm input voltage
+                    - button "p.8" [ref=e788] [cursor=pointer]
+                    - text: — on 120V the machine still runs but thermal trips early; 240V is the target.
+                  - listitem [ref=e789]:
+                    - strong [ref=e790]: Mount the spool
+                    - button "p.11" [ref=e792] [cursor=pointer]
+                    - text: — 0.035″ solid wire, tension set with a half-turn of inertia on release.
+                  - listitem [ref=e793]:
+                    - strong [ref=e794]: Thread through drive rolls
+                    - button "p.12" [ref=e796] [cursor=pointer]
+                    - text: "— watch that the groove matches your wire diameter; it's the #1 new-owner mistake."
+                  - listitem [ref=e797]:
+                    - strong [ref=e798]: Connect shielding gas
+                    - button "p.9" [ref=e800] [cursor=pointer]
+                    - text: — 75/25 Ar/CO₂ at 20–25 CFH for clean arcs on mild steel.
+                  - listitem [ref=e801]:
+                    - strong [ref=e802]: Set polarity to DCEP
+                    - button "p.13" [ref=e804] [cursor=pointer]
+                    - text: — torch to output +, ground to output −. If your last session was FCAW, the leads are wired the wrong way round.
+                  - listitem [ref=e805]:
+                    - strong [ref=e806]: Dial voltage and wire-feed speed
+                    - button "p.27" [ref=e808] [cursor=pointer]
+                    - text: — 18.5V / 340 ipm as the starting point for 1/8″ steel with 0.035″ wire.
+                  - listitem [ref=e809]:
+                    - strong [ref=e810]: Lay a practice bead on scrap
+                    - button "p.37" [ref=e812] [cursor=pointer]
+                    - text: — 10–15° drag angle, 3/8″ stick-out, listen for the frying-bacon sound.
+                  - listitem [ref=e813]:
+                    - strong [ref=e814]: Tack and weld the T-joint
+                    - button "p.22" [ref=e816] [cursor=pointer]
+                    - text: — 65/35 bias toward the bottom plate so heat goes where you need it.
+                - paragraph [ref=e817]: Each step in the walkthrough has its page image inline on the right — click the citation chips at the bottom of each step to jump to the full page in the source viewer.
+              - generic [ref=e819]:
+                - button "Spool mounting and tension setting p.11 OmniPro 220 owner's manual Spool mounting and tension setting" [ref=e820] [cursor=pointer]:
+                  - generic [ref=e821]:
+                    - img "Spool mounting and tension setting" [ref=e822]
+                    - generic [ref=e824]: p.11
+                  - generic [ref=e825]:
+                    - generic [ref=e826]: OmniPro 220 owner's manual
+                    - generic [ref=e827]: Spool mounting and tension setting
+                - button "Polarity paddle configuration — DCEP for MIG p.13 region OmniPro 220 owner's manual Polarity paddle configuration — DCEP for MIG" [ref=e828] [cursor=pointer]:
+                  - generic [ref=e829]:
+                    - img "Polarity paddle configuration — DCEP for MIG" [ref=e830]
+                    - generic [ref=e832]: p.13
+                    - generic [ref=e833]:
+                      - img [ref=e834]
+                      - text: region
+                  - generic [ref=e837]:
+                    - generic [ref=e838]: OmniPro 220 owner's manual
+                    - generic [ref=e839]: Polarity paddle configuration — DCEP for MIG
+              - generic [ref=e841]:
+                - generic [ref=e842]:
+                  - img [ref=e844]
+                  - generic [ref=e847]:
+                    - generic [ref=e848]: MIG setup — 1/8″ mild steel T-joint on 240 V
+                    - generic [ref=e850]: Walkthrough
+                  - button "Reload" [ref=e852] [cursor=pointer]:
+                    - img [ref=e853]
+                - iframe [ref=e857]:
+                  - generic [ref=f3e3]:
+                    - generic [ref=f3e4]:
+                      - generic [ref=f3e5]:
+                        - generic [ref=f3e6]:
+                          - generic [ref=f3e7]: MIG setup — 1/8″ mild steel T-joint on 240 V
+                          - generic [ref=f3e8]: First-time setup for a solid-wire MIG weld on this machine.
+                        - generic [ref=f3e9]: step-by-step
+                      - generic [ref=f3e12]: 01 of 08
+                    - generic [ref=f3e15]:
+                      - generic [ref=f3e16]:
+                        - generic [ref=f3e17]:
+                          - generic [ref=f3e18]: "01"
+                          - generic [ref=f3e20]: Step 1 of 8
+                        - generic [ref=f3e21]: p.8
+                      - generic [ref=f3e22]: Confirm your input voltage
+                      - figure "Input-voltage confirmation on the LCD" [ref=f3e24]:
+                        - img "Input-voltage confirmation on the LCD" [ref=f3e26]
+                        - generic [ref=f3e27]: Input-voltage confirmation on the LCD
+                      - generic [ref=f3e29]:
+                        - paragraph [ref=f3e30]:
+                          - text: Plug the OmniPro 220 into a
+                          - strong [ref=f3e31]: 240 V
+                          - text: outlet if you have one. The machine auto-detects input voltage and the LCD will show
+                          - code [ref=f3e32]: 240V
+                          - text: on boot. On 120 V everything still runs, but duty cycle at 160 A drops dramatically, and thermal protection will trip early.
+                        - list [ref=f3e33]:
+                          - listitem [ref=f3e34]: "If you only have a 120 V outlet: stick to thinner material (≤ 1/8″) and plan for rest intervals."
+                          - listitem [ref=f3e35]: Never run through a cheap extension cord.
+                    - generic [ref=f3e36]:
+                      - button "← Back" [disabled] [ref=f3e37]:
+                        - generic [ref=f3e38]: ←
+                        - text: Back
+                      - generic [ref=f3e39]:
+                        - button "Go to step 1" [ref=f3e40] [cursor=pointer]
+                        - button "Go to step 2" [ref=f3e41] [cursor=pointer]
+                        - button "Go to step 3" [disabled] [ref=f3e42]
+                        - button "Go to step 4" [disabled] [ref=f3e43]
+                        - button "Go to step 5" [disabled] [ref=f3e44]
+                        - button "Go to step 6" [disabled] [ref=f3e45]
+                        - button "Go to step 7" [disabled] [ref=f3e46]
+                        - button "Go to step 8" [disabled] [ref=f3e47]
+                      - button "Next →" [ref=f3e48] [cursor=pointer]:
+                        - text: Next
+                        - generic [ref=f3e49]: →
+                    - generic [ref=f3e50]:
+                      - generic [ref=f3e51]: ←
+                      - generic [ref=f3e52]: →
+                      - generic [ref=f3e53]: navigate
+                    - generic [ref=f3e54]:
+                      - generic [ref=f3e55]: sources
+                      - generic [ref=f3e56]: p.8
+                      - generic [ref=f3e57]: p.9
+                      - generic [ref=f3e58]: p.11
+                      - generic [ref=f3e59]: p.12
+                      - generic [ref=f3e60]: p.13
+                      - generic [ref=f3e61]: p.22
+                      - generic [ref=f3e62]: p.27
+                      - generic [ref=f3e63]: p.37
+      - generic [ref=e175]:
+        - generic [ref=e176]:
+          - textbox "Message" [ref=e177]
+          - generic: Which terminals do I plug the work clamp and torch into for TIG welding?
+        - generic [ref=e178]:
+          - generic [ref=e179]:
+            - button "Voice input" [ref=e180] [cursor=pointer]:
+              - img [ref=e181]
+            - button "Attach image (coming soon)" [disabled] [ref=e184]:
+              - img [ref=e185]
+            - generic [ref=e188]:
+              - img [ref=e189]
+              - text: Multimodal
+          - button "Send" [disabled] [ref=e192]:
+            - img [ref=e193]
+    - generic [ref=e861]:
+      - generic [ref=e862]:
+        - banner [ref=e863]:
+          - generic [ref=e864]:
+            - img [ref=e866]
+            - generic [ref=e868]:
+              - generic [ref=e869]: Conversations
+              - generic [ref=e870]: 4 saved · on this device
+          - button "Close" [ref=e871] [cursor=pointer]:
+            - img [ref=e872]
+        - generic [ref=e875]:
+          - button "New chat" [ref=e876] [cursor=pointer]:
+            - img [ref=e877]
+            - text: New chat
+          - button "Memory" [ref=e878] [cursor=pointer]:
+            - img [ref=e879]
+            - text: Memory
+        - generic [ref=e890]:
+          - img
+          - textbox "Search conversations…" [ref=e891]
+        - list [ref=e893]:
+          - listitem [ref=e894]:
+            - generic [ref=e895] [cursor=pointer]:
+              - generic [ref=e897]:
+                - generic [ref=e898]: Demo · Front-panel annotations
+                - generic [ref=e899]: 2 messages · 1d ago
+              - generic [ref=e900]:
+                - button "Rename" [ref=e901]:
+                  - img [ref=e902]
+                - button "Delete" [ref=e905]:
+                  - img [ref=e906]
+          - listitem [ref=e909]:
+            - generic [ref=e910] [cursor=pointer]:
+              - generic [ref=e912]:
+                - generic [ref=e913]: Demo · MIG setup walkthrough
+                - generic [ref=e914]: 2 messages · 2d ago
+              - generic [ref=e915]:
+                - button "Rename" [ref=e916]:
+                  - img [ref=e917]
+                - button "Delete" [ref=e920]:
+                  - img [ref=e921]
+          - listitem [ref=e924]:
+            - generic [ref=e925] [cursor=pointer]:
+              - generic [ref=e927]:
+                - generic [ref=e928]: Demo · Thermal-protection diagnosis
+                - generic [ref=e929]: 2 messages · 4d ago
+              - generic [ref=e930]:
+                - button "Rename" [ref=e931]:
+                  - img [ref=e932]
+                - button "Delete" [ref=e935]:
+                  - img [ref=e936]
+          - listitem [ref=e939]:
+            - generic [ref=e940] [cursor=pointer]:
+              - generic [ref=e942]:
+                - generic [ref=e943]: Demo · Safe-envelope calculator
+                - generic [ref=e944]: 2 messages · 6d ago
+              - generic [ref=e945]:
+                - button "Rename" [ref=e946]:
+                  - img [ref=e947]
+                - button "Delete" [ref=e950]:
+                  - img [ref=e951]
+        - contentinfo [ref=e954]:
+          - generic [ref=e955]: Conversations and memory live in this browser. Clearing site data or switching devices resets them.
+      - button "close drawer" [ref=e956] [cursor=pointer]

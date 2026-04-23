@@ -1,3 +1,4 @@
+import type { ContentBlockParam } from "@anthropic-ai/sdk/resources/messages/messages";
 import { loadKB } from "@/lib/kb/load";
 import { modelFor, modelForTier } from "./models";
 import { envWithApiKey, runQuery } from "./sdk-query";
@@ -5,9 +6,19 @@ import { AgentEventBus, type AgentEvent } from "./events";
 import { allowedToolNames, buildMcpServer } from "./tools";
 import { buildSystemPrompt } from "./system";
 
+export interface TurnAttachment {
+  /** base64 data URL OR an http(s)/relative URL. Data URLs get unpacked into
+   *  base64 image blocks; URLs get sent as URL image sources. */
+  src: string;
+  mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+  name?: string;
+}
+
 export interface ChatTurn {
   role: "user" | "assistant";
   content: string;
+  /** Images attached to this turn (only honored on the latest user turn). */
+  attachments?: TurnAttachment[];
 }
 
 export interface AgentSettings {
@@ -85,9 +96,19 @@ export async function* runAgent(args: {
   // long conversations can't blow the context budget. Long-range recall is
   // provided separately via the user-memory block in the system prompt.
   const priorContext = buildPriorContext(history);
-  const prompt = priorContext
-    ? `Conversation so far:\n${priorContext}\n\n[USER just said] ${last.content}`
-    : last.content;
+  const textPrompt = priorContext
+    ? `Conversation so far:\n${priorContext}\n\n[USER just said] ${last.content || "(see attached image)"}`
+    : last.content || "(see attached image)";
+
+  // If the user attached images to their latest turn, we switch from the
+  // plain-string prompt path to an async-iterable of one SDKUserMessage with
+  // text + image content blocks. Everything downstream (streaming, tool calls,
+  // MCP) works the same — only the input shape differs.
+  const attachments = (last.attachments || []).filter(
+    (a): a is TurnAttachment => !!a && typeof a.src === "string" && a.src.length > 0,
+  );
+  const prompt =
+    attachments.length > 0 ? buildMultimodalPrompt(textPrompt, attachments) : textPrompt;
 
   const mcp = buildMcpServer(bus, {
     apiKey: settings?.apiKey,
@@ -291,4 +312,55 @@ export async function* runAgent(args: {
     yield { type: "error", message: thrownErr.message };
   }
   yield { type: "done" };
+}
+
+/**
+ * Build an async iterable containing a single SDKUserMessage with content
+ * blocks (text + image). The SDK treats the iterable as a streaming input —
+ * it writes each message to the CLI subprocess and closes stdin after the
+ * iterable completes.
+ *
+ * Data URLs are unpacked into base64 image blocks; http(s) URLs pass through
+ * as URL image sources.
+ */
+async function* buildMultimodalPrompt(
+  text: string,
+  attachments: TurnAttachment[],
+) {
+  const content: ContentBlockParam[] = [];
+  for (const att of attachments) {
+    const dataMatch = att.src.match(/^data:([^;,]+);base64,(.+)$/);
+    if (dataMatch) {
+      const mediaType = (dataMatch[1] || att.mediaType) as
+        | "image/png"
+        | "image/jpeg"
+        | "image/webp"
+        | "image/gif";
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: mediaType,
+          data: dataMatch[2],
+        },
+      });
+    } else if (/^https?:\/\//.test(att.src)) {
+      content.push({
+        type: "image",
+        source: { type: "url", url: att.src },
+      });
+    }
+    // Relative paths (e.g. "/demo/porosity.png" from pre-seeded demo messages)
+    // aren't reachable by Anthropic's fetcher, so we skip them silently rather
+    // than sending a broken image block. Demo attachments never actually reach
+    // this path — the route strips attachments off non-latest turns.
+  }
+  content.push({ type: "text", text });
+
+  yield {
+    type: "user" as const,
+    session_id: "",
+    parent_tool_use_id: null,
+    message: { role: "user" as const, content },
+  };
 }

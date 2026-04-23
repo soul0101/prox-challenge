@@ -17,10 +17,7 @@ import {
 } from "@/lib/client/threads";
 import { factsAsLines, useUserMemory } from "@/lib/client/memory";
 import { AppShell } from "@/components/shell/AppShell";
-import {
-  RightPanelTabs,
-  type RightTabDescriptor,
-} from "@/components/shell/RightPanelTabs";
+import { useIsDesktop } from "@/lib/ui/useBreakpoint";
 import { LogoMark } from "@/components/ui/LogoMark";
 import type { Manifest } from "@/lib/kb/types";
 import type {
@@ -32,34 +29,21 @@ import { activeVersion } from "@/lib/client/chat-types";
 import { ease } from "@/lib/ui/motion";
 
 /**
- * A single tab in the right-side panel. Multiple artifact tabs can coexist
- * (one per `group_id`); the source viewer is a singleton (opening a new
- * page replaces the current source tab rather than stacking).
+ * Whatever is currently docked in the right pane. Sources open here when
+ * the user clicks a source card in chat — artifacts stay inline in the
+ * chat column so both can coexist.
  */
-type OpenTab =
-  | {
-      key: string;
-      kind: "artifact";
-      groupId: string;
-      /** User-chosen version for this tab; null means "follow latest". */
-      pickedVersion: number | null;
-    }
-  | {
-      key: string;
-      kind: "source";
-      doc: string;
-      page: number;
-      bbox: [number, number, number, number] | null;
-    };
-
-const SOURCE_TAB_KEY = "source";
-const artifactTabKey = (groupId: string) => `artifact:${groupId}`;
+type RightPaneView = {
+  kind: "source";
+  doc: string;
+  page: number;
+  bbox: [number, number, number, number] | null;
+};
 
 export default function Home() {
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
-  const [activeTabKey, setActiveTabKey] = useState<string | null>(null);
+  const [rightPane, setRightPane] = useState<RightPaneView | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [threadsOpen, setThreadsOpen] = useState(false);
@@ -74,6 +58,22 @@ export default function Home() {
   const [threadsState, threadOps, activeThread] = useThreads();
   const [memory, memoryOps] = useUserMemory();
   const memoryLines = useMemo(() => factsAsLines(memory), [memory]);
+  const isDesktop = useIsDesktop();
+
+  // On desktop, pop the conversations sidebar open once on first mount so the
+  // user sees the pre-seeded demo threads without having to discover the
+  // button. One-shot: if they close it, it stays closed for the session, and
+  // we hold off until any first-visit settings dialog has been dismissed so
+  // the two don't stack awkwardly.
+  const didAutoOpenThreadsRef = useRef(false);
+  useEffect(() => {
+    if (didAutoOpenThreadsRef.current) return;
+    if (!isDesktop) return;
+    if (isFirstVisit) return;
+    if (threadsState.threads.length === 0) return;
+    didAutoOpenThreadsRef.current = true;
+    setThreadsOpen(true);
+  }, [isDesktop, isFirstVisit, threadsState.threads.length]);
 
   // Guarantee there is always an active thread once the manifest is loaded,
   // so a first-time user can start chatting without clicking "new".
@@ -92,11 +92,10 @@ export default function Home() {
     return new Map(Object.entries(src));
   }, [activeThread?.artifacts]);
 
-  // When the active thread changes, clear all right-panel tabs — they belong
-  // to the previous thread and their group_ids won't resolve in the new one.
+  // When the active thread changes, close any open right-pane view — it
+  // belongs to the previous thread.
   useEffect(() => {
-    setOpenTabs([]);
-    setActiveTabKey(null);
+    setRightPane(null);
   }, [activeThread?.id]);
 
   // Lazy ref for callbacks that run outside render (artifact events, turn
@@ -170,64 +169,31 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
 
   const openSource = useCallback(
     (doc: string, page: number, attach?: SourceAttachment | null) => {
-      const bbox = attach?.bbox || null;
-      setOpenTabs((tabs) => {
-        const others = tabs.filter((t) => t.kind !== "source");
-        const next: OpenTab = { key: SOURCE_TAB_KEY, kind: "source", doc, page, bbox };
-        return [...others, next];
-      });
-      setActiveTabKey(SOURCE_TAB_KEY);
+      setRightPane({ kind: "source", doc, page, bbox: attach?.bbox || null });
     },
     [],
   );
 
-  const openArtifact = useCallback((groupId: string, version?: number) => {
-    const key = artifactTabKey(groupId);
-    setOpenTabs((tabs) => {
-      const existing = tabs.find((t) => t.key === key);
-      if (existing && existing.kind === "artifact") {
-        // Reuse the tab — only update the picked version if caller supplied one.
-        if (version == null || existing.pickedVersion === version) return tabs;
-        return tabs.map((t) =>
-          t.key === key && t.kind === "artifact"
-            ? { ...t, pickedVersion: version }
-            : t,
-        );
-      }
-      return [
-        ...tabs,
-        { key, kind: "artifact", groupId, pickedVersion: version ?? null },
-      ];
-    });
-    setActiveTabKey(key);
-  }, []);
+  const closeRightPane = useCallback(() => setRightPane(null), []);
 
-  const closeTab = useCallback((key: string) => {
-    setOpenTabs((tabs) => {
-      const idx = tabs.findIndex((t) => t.key === key);
-      if (idx === -1) return tabs;
-      const next = tabs.filter((t) => t.key !== key);
-      setActiveTabKey((active) => {
-        if (active !== key) return active;
-        if (next.length === 0) return null;
-        // Prefer the tab that slid into this slot; fall back to the last one.
-        return next[Math.min(idx, next.length - 1)].key;
-      });
-      return next;
-    });
-  }, []);
-
+  // Picking a version from an inline artifact card: update the thread's
+  // current_version in place so the inline iframe re-renders at the new
+  // version. No right-pane interaction — artifacts stay inline.
   const pickArtifactVersion = useCallback(
     (groupId: string, version: number) => {
-      const key = artifactTabKey(groupId);
-      setOpenTabs((tabs) =>
-        tabs.map((t) =>
-          t.key === key && t.kind === "artifact"
-            ? { ...t, pickedVersion: version }
-            : t,
-        ),
-      );
+      const current = activeThreadRef.current;
+      if (!current) return;
+      const existing = current.artifacts[groupId];
+      if (!existing) return;
+      threadOps.updateActive({
+        artifacts: {
+          ...current.artifacts,
+          [groupId]: { ...existing, current_version: version },
+        },
+      });
     },
+    // threadOps is stable; activeThreadRef is read at call time
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -287,13 +253,11 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
       threadOps.updateActive({
         artifacts: { ...current.artifacts, [groupId]: updated },
       });
-      // Open (or reuse) the tab for this group and pop it to the front of
-      // the user's attention. Pass `undefined` version so the tab follows
-      // "latest" rather than pinning to whichever version just arrived.
-      openArtifact(groupId);
+      // Artifacts render inline in chat via InlineArtifact; nothing else to
+      // do here. The right pane is reserved for manual sources.
       callback?.(groupId);
     },
-    [threadOps, openArtifact],
+    [threadOps],
   );
 
   const onTurnComplete = useCallback(
@@ -370,97 +334,33 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
     );
   }
 
-  // Resolve the currently-active tab into its payload.
-  const activeTab = openTabs.find((t) => t.key === activeTabKey) || null;
-
-  // If the active tab is an artifact but the underlying group has been
-  // garbage-collected (e.g., thread reset race), drop the tab silently.
-  let rightKey: string | null = null;
+  // Right-pane content. Sources dock here when the user clicks a card in
+  // chat; artifacts stay inline in the chat column. The pane keeps chat
+  // visible beside it — context preserved, scroll preserved.
   let rightNode: React.ReactNode = null;
-
-  if (activeTab?.kind === "artifact") {
-    const att = artifactsByGroup.get(activeTab.groupId);
-    if (att) {
-      const latest = att.versions[att.versions.length - 1].version;
-      const withVersion: ArtifactAttachment = {
-        ...att,
-        current_version: activeTab.pickedVersion ?? latest,
-      };
-      rightKey = activeTab.key;
-      rightNode = (
-        <ArtifactPanel
-          artifact={withVersion}
-          onClose={() => closeTab(activeTab.key)}
-          onPickVersion={(gid, version) => pickArtifactVersion(gid, version)}
-          onError={requestArtifactFix}
-        />
-      );
-    }
-  } else if (activeTab?.kind === "source") {
-    rightKey = `${activeTab.key}:${activeTab.doc}:${activeTab.page}`;
+  let rightKey: string | null = null;
+  if (rightPane?.kind === "source") {
+    rightKey = `${rightPane.doc}:${rightPane.page}`;
     rightNode = (
       <SourceViewer
         manifest={manifest.documents}
         open={true}
-        activeDoc={activeTab.doc}
-        activePage={activeTab.page}
-        highlightBbox={activeTab.bbox}
-        onClose={() => closeTab(activeTab.key)}
-        onNavigate={(doc, page) => openSource(doc, page, null)}
+        activeDoc={rightPane.doc}
+        activePage={rightPane.page}
+        highlightBbox={rightPane.bbox}
+        onClose={closeRightPane}
+        onNavigate={(doc, page) =>
+          setRightPane({ kind: "source", doc, page, bbox: null })
+        }
       />
     );
   }
-
-  // Build a descriptor per open tab for the strip.
-  const tabDescriptors: RightTabDescriptor[] = openTabs.map((t) => {
-    if (t.kind === "artifact") {
-      const att = artifactsByGroup.get(t.groupId);
-      const latest = att?.versions[att.versions.length - 1].version;
-      const v = att
-        ? activeVersion({
-            ...att,
-            current_version: t.pickedVersion ?? latest!,
-          })
-        : null;
-      return {
-        key: t.key,
-        kind: "artifact",
-        label: v?.title || "Artifact",
-        sublabel: v && att ? `v${v.version}/${att.versions.length}` : null,
-        artifactKind: v?.kind,
-      };
-    }
-    const docEntry = manifest.documents.find((d) => d.slug === t.doc);
-    return {
-      key: t.key,
-      kind: "source",
-      label: docEntry?.title || t.doc,
-      sublabel: `p.${t.page}`,
-    };
-  });
-
-  const activeArtifactGroupId =
-    activeTab?.kind === "artifact" ? activeTab.groupId : null;
-
-  const tabStrip =
-    tabDescriptors.length > 0 ? (
-      <RightPanelTabs
-        tabs={tabDescriptors}
-        activeKey={activeTabKey}
-        onSelect={setActiveTabKey}
-        onClose={closeTab}
-      />
-    ) : null;
 
   return (
     <AppShell
       rightKey={rightKey}
       right={rightNode}
-      tabs={tabStrip}
-      // Mobile swipe-down / scrim tap dismisses the sheet without destroying
-      // the user's open tabs — they can re-open any by tapping its inline
-      // card. The explicit × in tab strip or panel header still closes tabs.
-      onCloseRight={() => setActiveTabKey(null)}
+      onCloseRight={closeRightPane}
       chat={
         <>
           <AnimatePresence>
@@ -484,8 +384,8 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
               artifactsByGroup={artifactsByGroup}
               onOpenSource={openSource}
               onArtifactEvent={onArtifactEvent}
-              onOpenArtifact={openArtifact}
-              activeGroupId={activeArtifactGroupId}
+              onPickArtifactVersion={pickArtifactVersion}
+              onArtifactError={requestArtifactFix}
               onOpenLibrary={() => setLibraryOpen(true)}
               onOpenSettings={() => setSettingsOpen(true)}
               onOpenThreads={() => setThreadsOpen(true)}
@@ -521,8 +421,11 @@ Call \`emit_artifact\` again with the SAME \`group_id="${groupId}"\` so it stack
             onRename={threadOps.rename}
             onDelete={threadOps.remove}
             onOpenMemory={() => {
+              // Crisp handoff: let the sidebar finish its exit animation
+              // (~280 ms) before popping the memory dialog, so the two
+              // modals don't visibly overlap mid-way across the viewport.
               setThreadsOpen(false);
-              setMemoryOpen(true);
+              setTimeout(() => setMemoryOpen(true), 260);
             }}
             memoryCount={memory.facts.length}
           />
