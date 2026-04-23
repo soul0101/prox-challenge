@@ -202,9 +202,16 @@ Models are overridable at every level. Fleet-wide defaults come from `CLAUDE_MOD
 
 ## A note on what's not here
 
-A persistent backend database, voice I/O, in-app PDF upload, and web search are all absent — each one deliberately. `localStorage` is the right amount of persistence for a single-user demo and lets a reviewer wipe state with one click; a real deployment would swap in Postgres behind auth, but that's a boring layer rather than an interesting one. Voice isn't the bottleneck on this corpus — accuracy is — and adding it would trade polish elsewhere for a modality the task doesn't benefit from. Web search is the only one with a principled reason: the thesis is *"every claim is grounded in the document you uploaded,"* and a web-search tool would undermine that at exactly the moment it matters most.
+A backend database, in-app PDF upload, voice, and web search are left out of the demo. In production:
 
-If I had another week, the next things I'd build, in order: an eval harness with a gold set of forty questions per corpus scored on retrieval recall, citation correctness, and artifact render success — you can't tune field boosts or swap models responsibly without it. A self-correcting retrieval loop that, on a low top-score, re-expands paraphrases seeded from the vision-extracted keywords of the top candidates before falling back to `ask_user`. A lightweight routing step ahead of BM25 so single-doc questions don't get noise from the other corpora — minor at three documents, load-bearing at thirty. And an observability drawer that persists per-turn traces server-side so latency, token counts, and v1-to-v2 artifact corrections are all inspectable after the fact.
+- **Persistence** — Postgres behind auth replaces `localStorage`.
+- **In-app upload** — drag-and-drop replaces the `files/ → npm run ingest` CLI.
+- **Voice** — a hands-free loop; sketched below.
+- **Web search** — intentionally omitted. The thesis is *"every claim is grounded in the document you uploaded,"* and web results would undermine that.
+
+## What I'd build next
+
+The next steps are a hands-free voice loop (Whisper in, browser TTS or ElevenLabs out, riding the same stream the agent already uses for tool events); live video diagnosis — the user points their phone at the machine, frames stream up, the agent watches and talks back, closer to a video call with someone who's read the manual than a chat; Behind those, an eval harness, observability, and cross-document routing.
 
 ---
 
