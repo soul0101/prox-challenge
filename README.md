@@ -202,16 +202,15 @@ Models are overridable at every level. Fleet-wide defaults come from `CLAUDE_MOD
 
 ## A note on what's not here
 
-A backend database, in-app PDF upload, voice, and web search are left out of the demo. In production:
+A backend database, in-app PDF upload, and web search are left out of the demo. In production:
 
 - **Persistence** — Postgres behind auth replaces `localStorage`.
 - **In-app upload** — drag-and-drop replaces the `files/ → npm run ingest` CLI.
-- **Voice** — a hands-free loop; sketched below.
 - **Web search** — intentionally omitted. The thesis is *"every claim is grounded in the document you uploaded,"* and web results would undermine that.
 
 ## What I'd build next
 
-The next steps are a hands-free voice loop (Whisper in, browser TTS or ElevenLabs out, riding the same stream the agent already uses for tool events); live video diagnosis — the user points their phone at the machine, frames stream up, the agent watches and talks back, closer to a video call with someone who's read the manual than a chat; Behind those, an eval harness, observability, and cross-document routing.
+Voice-in is already wired via the browser's Web Speech API; the next step is closing the loop with voice-out (browser TTS or ElevenLabs), riding the same stream the agent already uses for tool events so responses narrate as they stream. Then live video diagnosis — the user points their phone at the machine, frames stream up, the agent watches and talks back, closer to a video call with someone who's read the manual than a chat. Behind those, an eval harness, observability, and cross-document routing.
 
 ---
 
