@@ -772,7 +772,7 @@ const PANEL_ARTIFACT: ArtifactAttachment = {
 // ════════════════════════════════════════════════════════════════════════════
 
 function envelopeCalculatorDemo(): Thread {
-  const baseTs = Date.now() - 6 * DAY;
+  const baseTs = Date.now() - 1 * DAY;
   const messages: StoredMessage[] = [
     msg({
       id: "demo-1-u1",
@@ -858,7 +858,7 @@ A reasonable **starting point** for this joint is **18.5 V / 340 ipm** — strai
 }
 
 function thermalTroubleshootDemo(): Thread {
-  const baseTs = Date.now() - 4 * DAY;
+  const baseTs = Date.now() - 2 * DAY;
   const messages: StoredMessage[] = [
     msg({
       id: "demo-2-u1",
@@ -962,7 +962,7 @@ Every leaf on the tree cites the manual page — click any of them to jump to th
 }
 
 function migSetupDemo(): Thread {
-  const baseTs = Date.now() - 2 * DAY;
+  const baseTs = Date.now() - 4 * DAY;
   const messages: StoredMessage[] = [
     msg({
       id: "demo-3-u1",
@@ -1154,7 +1154,7 @@ After each change, lay a 2-inch practice bead on clean scrap and look for the bu
 }
 
 function panelLabelsDemo(): Thread {
-  const baseTs = Date.now() - 1 * DAY;
+  const baseTs = Date.now() - 6 * DAY;
   const messages: StoredMessage[] = [
     msg({
       id: "demo-4-u1",
@@ -1244,7 +1244,7 @@ Click any row in the description list to flash the matching pin on the image.`,
  * Bump the suffix if you ever reshape the demo content and want to force a
  * reseed on return visits.
  */
-export const DEMO_SEEDED_KEY = "manual-copilot:threads:seeded:v7";
+export const DEMO_SEEDED_KEY = "manual-copilot:threads:seeded:v8";
 
 export function buildDemoThreads(): Thread[] {
   // Order matters — most-recent first so the sidebar lists them top-down.
